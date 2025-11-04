@@ -107,3 +107,5 @@ docker-compose.override.yml
 coverage/
 *.coverage
 *.coveragexml
+tasks.md
+projectbrief.md
