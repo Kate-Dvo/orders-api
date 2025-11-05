@@ -8,7 +8,7 @@ namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class ProductController(OrdersDbContext context, ILogger<ProductController> logger) : ControllerBase
+public class ProductsController(OrdersDbContext context, ILogger<ProductsController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts()
@@ -33,7 +33,7 @@ public class ProductController(OrdersDbContext context, ILogger<ProductControlle
         }
     }
 
-    [HttpGet("id")]
+    [HttpGet("{id}")]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProduct(int id)
     {
         try
@@ -103,7 +103,7 @@ public class ProductController(OrdersDbContext context, ILogger<ProductControlle
         }
     }
 
-    [HttpPut("id")]
+    [HttpPut("{id}")]
     public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request)
     {
         try
@@ -136,7 +136,8 @@ public class ProductController(OrdersDbContext context, ILogger<ProductControlle
         }
     }
 
-    [HttpDelete]
+    [HttpDelete("{id}")]
+
     public async Task<IActionResult> DeleteProduct(int id)
     {
         try
