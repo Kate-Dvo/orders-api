@@ -16,13 +16,20 @@ builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
 
 //Add DbContext
-builder.Services.AddDbContext<OrdersDbContext>(options => 
+builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 //TODO: Add Authentication
 //TODO: Add other services 
 
 var app = builder.Build();
+
+//Apply migrations automatically
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+    db.Database.Migrate();
+}
 
 //Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -39,4 +46,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
