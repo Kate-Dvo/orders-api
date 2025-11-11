@@ -76,7 +76,7 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
             {
                 Name = request.Name,
                 Email = request.Email,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             context.Add(customer);
@@ -90,7 +90,7 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
                 CreatedAt = customer.CreatedAt
             };
 
-            return CreatedAtAction(nameof(CreateCustomer), new { id = customer.Id }, response);
+            return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, response);
         }
         catch (Exception e)
         {
@@ -112,7 +112,7 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
                 return NotFound(new { Message = $"Customer with id {id} not found" });
             }
 
-            if (await context.Customers.AnyAsync(c => c.Email == request.Email))
+            if (await context.Customers.AnyAsync(c => c.Email == request.Email && c.Id == id))
             {
                 return Conflict(new { Message = $"Customer with email {request.Email} already exists" });
             }
