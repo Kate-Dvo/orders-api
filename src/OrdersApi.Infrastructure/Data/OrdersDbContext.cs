@@ -36,7 +36,10 @@ public class OrdersDbContext(DbContextOptions<OrdersDbContext> options) : DbCont
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Total).HasPrecision(18, 2);
-            entity.Property(e => e.RowVersion).IsRowVersion();
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .HasDefaultValueSql("randomblob(8)")
+                .ValueGeneratedOnAddOrUpdate();
             
             //indexing foreign keys for performance 
             entity.HasIndex(e => e.CustomerId);

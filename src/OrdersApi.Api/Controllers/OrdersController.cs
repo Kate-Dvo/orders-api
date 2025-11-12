@@ -11,6 +11,7 @@ namespace OrdersApi.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class OrdersController(OrdersDbContext context, ILogger<OrdersController> logger) : ControllerBase
 {
+    [HttpPost]
     public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest request)
     {
         try
@@ -29,12 +30,12 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
 
             foreach (var line in request.Lines)
             {
-                if (products.TryGetValue(line.ProductId, out var product))
+                if (!products.TryGetValue(line.ProductId, out var product))
                 {
                     return BadRequest(new { Message = $"Product with id {line.ProductId} not found" });
                 }
 
-                if (!product!.IsActive)
+                if (!product.IsActive)
                 {
                     return BadRequest(new { Message = $"Product with id {line.ProductId} is inactive" });
                 }
@@ -52,7 +53,8 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
                 CustomerId = request.CustomerId,
                 CreatedAt = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
-                Total = 0m
+                Total = 0m,
+                RowVersion = Guid.NewGuid().ToByteArray()
             };
 
             context.Orders.Add(order);
@@ -87,7 +89,7 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
                 CustomerId = request.CustomerId,
                 Status = order.Status.ToString(),
                 Total = order.Total,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = order.CreatedAt,
                 Lines = orderLines.Select(ol => new OrderLineResponse
                 {
                     ProductId = ol.ProductId,
@@ -105,6 +107,7 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
         }
     }
 
+    [HttpGet("{id}")]
     public async Task<ActionResult<OrderResponse>> GetOrderById(int id)
     {
         var order = await context.Orders
