@@ -15,7 +15,8 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
     {
         try
         {
-            var customers = await context.Customers
+            var customers = await context.Customers.
+                AsNoTracking()
                 .Select(c => new CustomerResponse
                 {
                     Id = c.Id,
@@ -112,7 +113,7 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
                 return NotFound(new { Message = $"Customer with id {id} not found" });
             }
 
-            if (await context.Customers.AnyAsync(c => c.Email == request.Email && c.Id == id))
+            if (await context.Customers.AnyAsync(c => c.Email == request.Email && c.Id != id))
             {
                 return Conflict(new { Message = $"Customer with email {request.Email} already exists" });
             }
