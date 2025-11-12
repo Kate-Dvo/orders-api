@@ -15,7 +15,9 @@ public class ProductsController(OrdersDbContext context, ILogger<ProductsControl
     {
         try
         {
-            var products = await context.Products.Select(p => new ProductResponse
+            var products = await context.Products
+                .AsNoTracking()
+                .Select(p => new ProductResponse
                 {
                     Id = p.Id,
                     Sku = p.Sku,
@@ -34,7 +36,7 @@ public class ProductsController(OrdersDbContext context, ILogger<ProductsControl
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProduct(int id)
+    public async Task<ActionResult<ProductResponse>> GetProduct(int id)
     {
         try
         {
@@ -56,7 +58,7 @@ public class ProductsController(OrdersDbContext context, ILogger<ProductsControl
         }
         catch (Exception e)
         {
-            logger.LogError(e.Message, "Failed to extract products");
+            logger.LogError(e, "Failed to extract products");
             throw;
         }
     }

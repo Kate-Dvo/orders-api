@@ -53,8 +53,7 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
                 CustomerId = request.CustomerId,
                 CreatedAt = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
-                Total = 0m,
-                RowVersion = Guid.NewGuid().ToByteArray()
+                Total = 0m
             };
 
             context.Orders.Add(order);
@@ -73,14 +72,14 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
                         Quantity = line.Quantity,
                         UnitPrice = products[line.ProductId].Price
                     });
-                
+
                 total += line.Quantity * products[line.ProductId].Price;
             }
-            
+
             order.Total = total;
             context.OrderLines.AddRange(orderLines); // why not async here?
             await context.SaveChangesAsync();
-            
+
             await transaction.CommitAsync();
 
             var response = new OrderResponse
@@ -97,13 +96,13 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
                     UnitPrice = ol.UnitPrice
                 }).ToList()
             };
-            
+
             return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, response);
         }
         catch (Exception e)
         {
             logger.LogError(e, "Failed to create order for customer {CustomerId}", request.CustomerId);
-            return StatusCode(500, new {Message = "An error occured while creating order" });
+            return StatusCode(500, new { Message = "An error occured while creating order" });
         }
     }
 
@@ -116,7 +115,7 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
 
         if (order == null)
         {
-            return NotFound(new {Message =  $"Order with id {id} not found" });
+            return NotFound(new { Message = $"Order with id {id} not found" });
         }
 
         var response = new OrderResponse
@@ -133,8 +132,45 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
                 UnitPrice = ol.UnitPrice
             }).ToList()
         };
-        
-        return Ok(response);
 
+        return Ok(response);
+    }
+
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request)
+    {
+        try
+        {
+            var order = await context.Orders.FindAsync(id);
+
+            if (order == null)
+            {
+                return NotFound(new { Message = $"Order with id {id} not found" });
+            }
+
+            //Allowed transitions Pending -> Paid, Pending -> Canceled
+            if (order.Status != OrderStatus.Pending)
+            {
+                return Conflict(new
+                {
+                    Message = $"Order id {id} with status {order.Status} cannot transition to {request.Status}"
+                });
+            }
+
+            if (request.Status is not (OrderStatus.Paid or OrderStatus.Cancelled))
+            {
+                return Conflict(new { Message = $"Order id {order.Id} cannot transition to {request.Status}" });
+            }
+
+            order.Status = request.Status;
+            await context.SaveChangesAsync();
+
+            return NoContent();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to update order status for id {id}", id);
+            throw;
+        }
     }
 }
