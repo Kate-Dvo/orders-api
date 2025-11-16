@@ -1,60 +1,43 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using OrdersApi.Api.DTOs;
-using OrdersApi.Domain.Entities;
-using OrdersApi.Infrastructure.Data;
+using OrdersApi.Application.Products;
+using OrdersApi.Application.Products.Models;
 
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class ProductsController(OrdersDbContext context, ILogger<ProductsController> logger) : ControllerBase
+public class ProductsController(
+    IProductService productService,
+    ILogger<ProductsController> logger,
+    CancellationToken cancellationToken = default) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts()
     {
         try
         {
-            var products = await context.Products
-                .AsNoTracking()
-                .Select(p => new ProductResponse
-                {
-                    Id = p.Id,
-                    Sku = p.Sku,
-                    Name = p.Name,
-                    Price = p.Price,
-                    IsActive = p.IsActive
-                })
-                .ToListAsync();
+            var products = await productService.GetAllAsync(cancellationToken);
             return Ok(products);
         }
         catch (Exception e)
         {
-            logger.LogError(e.Message, "Failed to extract products");
+            logger.LogError(e, "Failed to extract products");
             throw;
         }
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ProductResponse>> GetProduct(int id)
+    public async Task<ActionResult<ProductResponse?>> GetProduct(int id)
     {
         try
         {
-            var product = await context.Products.FindAsync(id);
-            if (product == null)
+            var (isSucceed, product) = await productService.GetByIdAsync(id, cancellationToken);
+            if (!isSucceed)
             {
                 return NotFound(new { Message = $"Product with id {id} not found" });
             }
 
-            var response = new ProductResponse
-            {
-                Id = product.Id,
-                Sku = product.Sku,
-                Name = product.Name,
-                Price = product.Price,
-                IsActive = product.IsActive
-            };
-            return Ok(response);
+            return Ok(product);
         }
         catch (Exception e)
         {
@@ -69,32 +52,14 @@ public class ProductsController(OrdersDbContext context, ILogger<ProductsControl
     {
         try
         {
-            if (await context.Products.AnyAsync(p => p.Sku == request.Sku))
+            var (isSucceed, product) = await productService.CreateAsync(request, cancellationToken);
+
+            if (!isSucceed)
             {
-                return Conflict(new { Message = $"Product with sku '{request.Sku}' already exists" });
+                return ValidationProblem("Failed to create product");
             }
 
-            var product = new Product
-            {
-                Sku = request.Sku,
-                Name = request.Name,
-                Price = request.Price,
-                IsActive = request.IsActive
-            };
-
-            context.Products.Add(product);
-            await context.SaveChangesAsync();
-
-            var response = new ProductResponse
-            {
-                Id = product.Id,
-                Sku = product.Sku,
-                Name = product.Name,
-                Price = product.Price,
-                IsActive = product.IsActive
-            };
-
-            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, response);
+            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
         catch (Exception e)
         {
@@ -110,24 +75,7 @@ public class ProductsController(OrdersDbContext context, ILogger<ProductsControl
     {
         try
         {
-            var product = await context.Products.FindAsync(id);
-
-            if (product == null)
-            {
-                return NotFound(new { Message = $"Product with id {id} not found" });
-            }
-
-            if (await context.Products.AnyAsync(p => p.Sku == request.Sku && p.Id != id))
-            {
-                return Conflict(new { Message = $"Product with SKU {request.Sku} already exists" });
-            }
-
-            product.Sku = request.Sku;
-            product.Name = request.Name;
-            product.Price = request.Price;
-            product.IsActive = request.IsActive;
-
-            await context.SaveChangesAsync();
+            await productService.UpdateAsync(id, request, cancellationToken);
 
             return NoContent();
         }
@@ -139,20 +87,11 @@ public class ProductsController(OrdersDbContext context, ILogger<ProductsControl
     }
 
     [HttpDelete("{id}")]
-
     public async Task<IActionResult> DeleteProduct(int id)
     {
         try
         {
-            var product = await context.Products.FindAsync(id);
-
-            if (product == null)
-            {
-                return NotFound(new { Message = $"Product with id {id} not found" });
-            }
-
-            context.Products.Remove(product);
-            await context.SaveChangesAsync();
+            await productService.DeleteAsync(id, cancellationToken);
 
             return NoContent();
         }
