@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Mvc;
 using OrdersApi.Application.Products.Models;
 
 namespace OrdersApi.Application.Products;

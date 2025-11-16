@@ -29,7 +29,7 @@ public class ProductService(OrdersDbContext context) : IProductService
         var product = await context.Products.FindAsync(id,  cancellationToken);
         var isFound = product != null;
 
-        if (isFound)
+        if (!isFound)
         {
             return (!isFound, null);
         }
@@ -83,7 +83,7 @@ public class ProductService(OrdersDbContext context) : IProductService
         var product = await context.Products.FindAsync(id, cancellationToken);
 
         var isFound = product != null;
-        if (isFound)
+        if (!isFound)
         {
             return !isFound;
         }
