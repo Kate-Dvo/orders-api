@@ -31,7 +31,7 @@ public class ProductService(OrdersDbContext context) : IProductService
 
         if (!isFound)
         {
-            return (!isFound, null);
+            return (isFound, null);
         }
 
         var response = new ProductResponse
