@@ -8,11 +8,10 @@ namespace OrdersApi.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class ProductsController(
     IProductService productService,
-    ILogger<ProductsController> logger,
-    CancellationToken cancellationToken = default) : ControllerBase
+    ILogger<ProductsController> logger) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts()
+    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(CancellationToken cancellationToken)
     {
         try
         {
@@ -27,7 +26,7 @@ public class ProductsController(
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ProductResponse?>> GetProduct(int id)
+    public async Task<ActionResult<ProductResponse?>> GetProduct(int id, CancellationToken cancellationToken)
     {
         try
         {
@@ -48,7 +47,8 @@ public class ProductsController(
 
     //POST api/v1/products
     [HttpPost]
-    public async Task<ActionResult<ProductResponse>> CreateProduct(CreateProductRequest request)
+    public async Task<ActionResult<ProductResponse>> CreateProduct(CreateProductRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -56,7 +56,8 @@ public class ProductsController(
 
             if (!isSucceed)
             {
-                return ValidationProblem("Failed to create product");
+                return Conflict(new
+                    { Message = $"Product with SKU '{request.Sku}' already exists or constraint violation" });
             }
 
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
@@ -71,11 +72,16 @@ public class ProductsController(
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request)
+    public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
-            await productService.UpdateAsync(id, request, cancellationToken);
+            var result = await productService.UpdateAsync(id, request, cancellationToken);
+            if (!result)
+            {
+                return NotFound(new { Message = $"Product with id {id} not found" });
+            }
 
             return NoContent();
         }
@@ -87,11 +93,16 @@ public class ProductsController(
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProduct(int id)
+    public async Task<IActionResult> DeleteProduct(int id, CancellationToken cancellationToken)
     {
         try
         {
-            await productService.DeleteAsync(id, cancellationToken);
+            var result = await productService.DeleteAsync(id, cancellationToken);
+
+            if (!result)
+            {
+                return NotFound(new { Message = $"Product with id {id} not found" });
+            }
 
             return NoContent();
         }
