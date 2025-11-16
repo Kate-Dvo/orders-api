@@ -85,7 +85,7 @@ public class ProductService(OrdersDbContext context) : IProductService
         var isFound = product != null;
         if (!isFound)
         {
-            return !isFound;
+            return isFound;
         }
 
         product.Sku = request.Sku;
