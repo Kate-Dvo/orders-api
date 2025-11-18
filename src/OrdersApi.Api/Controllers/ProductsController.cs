@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using OrdersApi.Application.Common;
 using OrdersApi.Application.Products;
 using OrdersApi.Application.Products.Models;
 
@@ -15,8 +16,18 @@ public class ProductsController(
     {
         try
         {
-            var products = await productService.GetAllAsync(cancellationToken);
-            return Ok(products);
+            var result = await productService.GetAllAsync(cancellationToken);
+
+            return result.IsSuccess
+                ? Ok(result.Value)
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -30,13 +41,17 @@ public class ProductsController(
     {
         try
         {
-            var (isSucceed, product) = await productService.GetByIdAsync(id, cancellationToken);
-            if (!isSucceed)
-            {
-                return NotFound(new { Message = $"Product with id {id} not found" });
-            }
-
-            return Ok(product);
+            var result = await productService.GetByIdAsync(id, cancellationToken);
+            return result.IsSuccess
+                ? Ok(result.Value)
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -52,15 +67,18 @@ public class ProductsController(
     {
         try
         {
-            var (isSucceed, product) = await productService.CreateAsync(request, cancellationToken);
+            var result = await productService.CreateAsync(request, cancellationToken);
 
-            if (!isSucceed)
-            {
-                return Conflict(new
-                    { Message = $"Product with SKU '{request.Sku}' already exists or constraint violation" });
-            }
-
-            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+            return result.IsSuccess
+                ? CreatedAtAction(nameof(GetProduct), new { id = result.Value?.Id }, result.Value)
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => Conflict(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -78,12 +96,16 @@ public class ProductsController(
         try
         {
             var result = await productService.UpdateAsync(id, request, cancellationToken);
-            if (!result)
-            {
-                return NotFound(new { Message = $"Product with id {id} not found" });
-            }
-
-            return NoContent();
+            return result.IsSuccess
+                ? NoContent()
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -99,12 +121,16 @@ public class ProductsController(
         {
             var result = await productService.DeleteAsync(id, cancellationToken);
 
-            if (!result)
-            {
-                return NotFound(new { Message = $"Product with id {id} not found" });
-            }
-
-            return NoContent();
+            return result.IsSuccess
+                ? NoContent()
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {

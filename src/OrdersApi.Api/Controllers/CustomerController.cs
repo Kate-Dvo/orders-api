@@ -1,31 +1,30 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using OrdersApi.Api.DTOs;
-using OrdersApi.Domain.Entities;
-using OrdersApi.Infrastructure.Data;
+using OrdersApi.Application.Common;
+using OrdersApi.Application.Customers;
+using OrdersApi.Application.Customers.Models;
 
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class CustomerController(OrdersDbContext context, ILogger<CustomerController> logger) : ControllerBase
+public class CustomerController(ICustomerService customerService, ILogger<CustomerController> logger) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CustomerResponse>>> GetCustomers()
+    public async Task<ActionResult<IEnumerable<CustomerResponse>>> GetCustomers(CancellationToken cancellationToken)
     {
         try
         {
-            var customers = await context.Customers.
-                AsNoTracking()
-                .Select(c => new CustomerResponse
+            var result = await customerService.GetAllAsync(cancellationToken);
+            return result.IsSuccess
+                ? Ok(result.Value)
+                : result.ErrorType switch
                 {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Email = c.Email,
-                    CreatedAt = c.CreatedAt,
-                }).ToListAsync();
-
-            return Ok(customers);
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -34,27 +33,24 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
         }
     }
 
+
     [HttpGet("{id}")]
-    public async Task<ActionResult<CustomerResponse>> GetCustomer(int id)
+    public async Task<ActionResult<CustomerResponse>> GetCustomer(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var customer = await context.Customers.FindAsync(id);
+            var result = await customerService.GetByIdAsync(id, cancellationToken);
 
-            if (customer == null)
-            {
-                return NotFound(new { Message = $"Customer with id {id} not found" });
-            }
-
-            var response = new CustomerResponse
-            {
-                Id = customer.Id,
-                Name = customer.Name,
-                Email = customer.Email,
-                CreatedAt = customer.CreatedAt
-            };
-
-            return Ok(response);
+            return result.IsSuccess
+                ? Ok(result.Value)
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -64,34 +60,22 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
     }
 
     [HttpPost]
-    public async Task<ActionResult<CustomerResponse>> CreateCustomer(CreateCustomerRequest request)
+    public async Task<ActionResult<CustomerResponse>> CreateCustomer(CreateCustomerRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
-            if (await context.Customers.AnyAsync(c => c.Email == request.Email))
-            {
-                return Conflict(new { Message = $"Customer with email {request.Email} already exists" });
-            }
-
-            var customer = new Customer
-            {
-                Name = request.Name,
-                Email = request.Email,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            context.Add(customer);
-            await context.SaveChangesAsync();
-
-            var response = new CustomerResponse
-            {
-                Id = customer.Id,
-                Name = customer.Name,
-                Email = customer.Email,
-                CreatedAt = customer.CreatedAt
-            };
-
-            return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, response);
+            var result = await customerService.CreateAsync(request, cancellationToken);
+            return result.IsSuccess
+                ? CreatedAtAction(nameof(GetCustomer), new { id = result.Value?.Id }, result.Value)
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -102,28 +86,22 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateCustomer(int id, UpdateCustomerRequest request)
+    public async Task<IActionResult> UpdateCustomer(int id, UpdateCustomerRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var customer = await context.Customers.FindAsync(id);
-            
-            if (customer is null)
-            {
-                return NotFound(new { Message = $"Customer with id {id} not found" });
-            }
-
-            if (await context.Customers.AnyAsync(c => c.Email == request.Email && c.Id != id))
-            {
-                return Conflict(new { Message = $"Customer with email {request.Email} already exists" });
-            }
-
-            customer.Name = request.Name;
-            customer.Email = request.Email;
-            
-            await context.SaveChangesAsync();
-
-            return NoContent();
+            var result = await customerService.UpdateAsync(id, request, cancellationToken);
+            return result.IsSuccess
+                ? NoContent()
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
@@ -133,25 +111,25 @@ public class CustomerController(OrdersDbContext context, ILogger<CustomerControl
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteCustomer(int id)
+    public async Task<IActionResult> DeleteCustomer(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var customer = await context.Customers.FindAsync(id);
-            
-            if (customer is null)
-            {
-                return NotFound(new { Message = $"Customer with id {id} not found" });
-            }
-            
-            context.Customers.Remove(customer);
-            await context.SaveChangesAsync();
-            
-            return NoContent();
+            var result = await customerService.DeleteAsync(id, cancellationToken);
+            return result.IsSuccess
+                ? NoContent()
+                : result.ErrorType switch
+                {
+                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                    _ => StatusCode(500, new { Message = result.Error })
+                };
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Failed to delete customer with id {id}", id );
+            logger.LogError(e, "Failed to delete customer with id {id}", id);
             throw;
         }
     }

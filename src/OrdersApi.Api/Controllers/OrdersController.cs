@@ -1,103 +1,30 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using OrdersApi.Api.DTOs;
-using OrdersApi.Domain.Entities;
-using OrdersApi.Domain.Enums;
-using OrdersApi.Infrastructure.Data;
+using OrdersApi.Application.Common;
+using OrdersApi.Application.Orders;
+using OrdersApi.Application.Orders.Models;
 
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class OrdersController(OrdersDbContext context, ILogger<OrdersController> logger) : ControllerBase
+public class OrdersController(IOrderService orderService, ILogger<OrdersController> logger) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest request)
+    public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var customer = await context.Customers.FirstOrDefaultAsync(x => x.Id == request.CustomerId);
-            if (customer == null)
+            foreach (var line in request.Lines.Where(line => line.Quantity <= 0))
             {
-                return BadRequest(new { Message = $"Customer with id {request.CustomerId} not found" });
+                return BadRequest(new { Message = $"Quantity must be > 0 for product {line.ProductId}" });
             }
 
-            //Validate all products
-            var productIds = request.Lines.Select(l => l.ProductId).ToHashSet();
-            var products = await context.Products
-                .Where(p => productIds.Contains(p.Id))
-                .ToDictionaryAsync(p => p.Id, p => p);
+            var result = await orderService.CreateAsync(request, cancellationToken);
 
-            foreach (var line in request.Lines)
-            {
-                if (!products.TryGetValue(line.ProductId, out var product))
-                {
-                    return BadRequest(new { Message = $"Product with id {line.ProductId} not found" });
-                }
-
-                if (!product.IsActive)
-                {
-                    return BadRequest(new { Message = $"Product with id {line.ProductId} is inactive" });
-                }
-
-                if (line.Quantity <= 0)
-                {
-                    return BadRequest(new { Message = $"Quantity must be > 0 for product {line.ProductId}" });
-                }
-            }
-
-            await using var transaction = await context.Database.BeginTransactionAsync();
-
-            var order = new Order
-            {
-                CustomerId = request.CustomerId,
-                CreatedAt = DateTime.UtcNow,
-                Status = OrderStatus.Pending,
-                Total = 0m
-            };
-
-            context.Orders.Add(order);
-            await context.SaveChangesAsync();
-
-            var orderLines = new List<OrderLine>();
-            var total = 0m;
-
-            foreach (var line in request.Lines)
-            {
-                orderLines.Add(
-                    new OrderLine
-                    {
-                        OrderId = order.Id,
-                        ProductId = line.ProductId,
-                        Quantity = line.Quantity,
-                        UnitPrice = products[line.ProductId].Price
-                    });
-
-                total += line.Quantity * products[line.ProductId].Price;
-            }
-
-            order.Total = total;
-            context.OrderLines.AddRange(orderLines); // why not async here?
-            await context.SaveChangesAsync();
-
-            await transaction.CommitAsync();
-
-            var response = new OrderResponse
-            {
-                Id = order.Id,
-                CustomerId = request.CustomerId,
-                Status = order.Status.ToString(),
-                Total = order.Total,
-                CreatedAt = order.CreatedAt,
-                Lines = orderLines.Select(ol => new OrderLineResponse
-                {
-                    ProductId = ol.ProductId,
-                    Quantity = ol.Quantity,
-                    UnitPrice = ol.UnitPrice
-                }).ToList()
-            };
-
-            return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, response);
+            return result.IsSuccess
+                ? CreatedAtAction(nameof(GetOrderById), new { id = result.Value?.Id }, result.Value)
+                : MapErrorToActionResult(result.ErrorType, result.Error);
         }
         catch (Exception e)
         {
@@ -107,70 +34,43 @@ public class OrdersController(OrdersDbContext context, ILogger<OrdersController>
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<OrderResponse>> GetOrderById(int id)
+    public async Task<ActionResult<OrderResponse>> GetOrderById(int id, CancellationToken cancellationToken)
     {
-        var order = await context.Orders
-            .Include(o => o.Lines)
-            .FirstOrDefaultAsync(o => o.Id == id);
+        var result = await orderService.GetByIdAsync(id, cancellationToken);
 
-        if (order == null)
-        {
-            return NotFound(new { Message = $"Order with id {id} not found" });
-        }
-
-        var response = new OrderResponse
-        {
-            Id = order.Id,
-            CustomerId = order.CustomerId,
-            Status = order.Status.ToString(),
-            Total = order.Total,
-            CreatedAt = order.CreatedAt,
-            Lines = order.Lines.Select(ol => new OrderLineResponse
-            {
-                ProductId = ol.ProductId,
-                Quantity = ol.Quantity,
-                UnitPrice = ol.UnitPrice
-            }).ToList()
-        };
-
-        return Ok(response);
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : MapErrorToActionResult(result.ErrorType, result.Error);
     }
 
     [HttpPatch("{id}/status")]
-    public async Task<IActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request)
+    public async Task<IActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var order = await context.Orders.FindAsync(id);
+            var result = await orderService.UpdateStatusAsync(id, request, cancellationToken);
 
-            if (order == null)
-            {
-                return NotFound(new { Message = $"Order with id {id} not found" });
-            }
-
-            //Allowed transitions Pending -> Paid, Pending -> Canceled
-            if (order.Status != OrderStatus.Pending)
-            {
-                return Conflict(new
-                {
-                    Message = $"Order id {id} with status {order.Status} cannot transition to {request.Status}"
-                });
-            }
-
-            if (request.Status is not (OrderStatus.Paid or OrderStatus.Cancelled))
-            {
-                return Conflict(new { Message = $"Order id {order.Id} cannot transition to {request.Status}" });
-            }
-
-            order.Status = request.Status;
-            await context.SaveChangesAsync();
-
-            return NoContent();
+            return result.IsSuccess
+                ? NoContent()
+                : MapErrorToActionResult(result.ErrorType, result.Error);
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Failed to update order status for id {id}", id);
+            logger.LogError(e, "Failed to update order status for id {Id}", id);
             throw;
         }
+    }
+
+    private ActionResult MapErrorToActionResult(ResultErrorType errorType, string? message)
+    {
+        return errorType switch
+        {
+            ResultErrorType.NotFound => NotFound(new { Message = message }),
+            ResultErrorType.Validation => BadRequest(new { Message = message }),
+            ResultErrorType.BusinessRule => Conflict(new { Message = message }),
+            ResultErrorType.Conflict => Conflict(new { Message = message }),
+            _ => StatusCode(500, new { Message = message })
+        };
     }
 }

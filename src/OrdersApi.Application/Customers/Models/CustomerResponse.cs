@@ -1,4 +1,4 @@
-namespace OrdersApi.Api.DTOs;
+namespace OrdersApi.Application.Customers.Models;
 
 public class CustomerResponse
 {
