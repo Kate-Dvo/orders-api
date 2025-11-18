@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
+using OrdersApi.Application.Customers;
+using OrdersApi.Application.Orders;
 using OrdersApi.Application.Products;
 using OrdersApi.Domain.Configuration;
 using OrdersApi.Infrastructure.Data;
@@ -23,6 +25,8 @@ builder.Services.AddDbContext<OrdersDbContext>(options =>
 //TODO: Add Authentication
 //TODO: Add other services 
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
 
 var app = builder.Build();
 
