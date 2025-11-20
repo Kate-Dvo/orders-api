@@ -14,7 +14,7 @@ public class CustomerService(OrdersDbContext context) : ICustomerService
             .AsNoTracking()
             .Select(c => MapToCustomerResponse(c))
             .ToListAsync(cancellationToken);
-
+        
         return Result<IEnumerable<CustomerResponse>>.Success(customers);
     }
 
