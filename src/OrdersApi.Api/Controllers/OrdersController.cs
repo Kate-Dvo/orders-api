@@ -15,11 +15,6 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
     {
         try
         {
-            foreach (var line in request.Lines.Where(line => line.Quantity <= 0))
-            {
-                return BadRequest(new { Message = $"Quantity must be > 0 for product {line.ProductId}" });
-            }
-
             var result = await orderService.CreateAsync(request, cancellationToken);
 
             return result.IsSuccess

@@ -12,6 +12,11 @@ public class OrderService(OrdersDbContext context) : IOrderService
     public async Task<Result<OrderResponse>> CreateAsync(CreateOrderRequest request,
         CancellationToken cancellationToken)
     {
+        foreach (var line in request.Lines.Where(line => line.Quantity <= 0))
+        {
+            return Result<OrderResponse>.Failure($"Quantity must be > 0 for product {line.ProductId}", ResultErrorType.Validation);
+        }
+        
         var customerExist = await context.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken);
         if (!customerExist)
         {
