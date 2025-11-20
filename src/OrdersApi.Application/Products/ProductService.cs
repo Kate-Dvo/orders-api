@@ -81,7 +81,7 @@ public class ProductService(OrdersDbContext context) : IProductService
     public async Task<Result<bool>> UpdateAsync(int id, UpdateProductRequest request,
         CancellationToken cancellationToken)
     {
-        if (await context.Products.AnyAsync(p => p.Sku == request.Sku, cancellationToken))
+        if (await context.Products.AnyAsync(p => p.Sku == request.Sku && p.Id != id, cancellationToken))
         {
             return Result<bool>.Failure($"Product with SKU {request.Sku} already exist.", ResultErrorType.Conflict);
         }
