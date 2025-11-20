@@ -64,7 +64,7 @@ public class CustomerService(OrdersDbContext context) : ICustomerService
             return Result<bool>.Failure($"Customer with id {id} not found", ResultErrorType.NotFound);
         }
 
-        if (await context.Customers.AnyAsync(c => c.Email == request.Email, cancellationToken))
+        if (await context.Customers.AnyAsync(c => c.Email == request.Email && c.Id != id, cancellationToken))
         {
             return Result<bool>.Failure($"Customer with email {request.Email} already exists",
                 ResultErrorType.Conflict);
