@@ -6,5 +6,6 @@ public enum ResultErrorType
     NotFound,
     Validation,
     Conflict,
+    ConcurrencyConflict,
     BusinessRule
 }

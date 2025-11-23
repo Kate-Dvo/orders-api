@@ -33,9 +33,19 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
     {
         var result = await orderService.GetByIdAsync(id, cancellationToken);
 
-        return result.IsSuccess
-            ? Ok(result.Value)
-            : MapErrorToActionResult(result.ErrorType, result.Error);
+        if (!result.IsSuccess)
+        {
+            return MapErrorToActionResult(result.ErrorType, result.Error);
+        }
+
+        var rowVersion = result.Value?.RowVersion;
+
+        if (rowVersion is not { Length: > 0 }) return Ok(result.Value);
+
+        var etag = Convert.ToBase64String(rowVersion);
+        Response.Headers.ETag = $"\"{etag}\"";
+
+        return Ok(result.Value);
     }
 
     [HttpPatch("{id}/status")]
@@ -44,6 +54,26 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
     {
         try
         {
+            if (!Request.Headers.TryGetValue("If-Match", out var ifMatchValue))
+            {
+                return StatusCode(428, new
+                {
+                    Message = "If-Match header is required for updates",
+                    Detail = "Include the ETag from GET request in If-Match header"
+                });
+            }
+
+            var etagString = ifMatchValue.ToString().Trim('"');
+
+            try
+            {
+                request.RowVersion = Convert.FromBase64String(etagString);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new { Message = "Invalid ETag format" });
+            }
+
             var result = await orderService.UpdateStatusAsync(id, request, cancellationToken);
 
             return result.IsSuccess
@@ -57,13 +87,14 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
         }
     }
 
-    private ActionResult MapErrorToActionResult(ResultErrorType errorType, string? message)
+    public ActionResult MapErrorToActionResult(ResultErrorType errorType, string? message)
     {
         return errorType switch
         {
             ResultErrorType.NotFound => NotFound(new { Message = message }),
             ResultErrorType.Validation => BadRequest(new { Message = message }),
             ResultErrorType.BusinessRule => Conflict(new { Message = message }),
+            ResultErrorType.ConcurrencyConflict => StatusCode(412, new { Message = message }),
             ResultErrorType.Conflict => Conflict(new { Message = message }),
             _ => StatusCode(500, new { Message = message })
         };

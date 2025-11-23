@@ -7,4 +7,5 @@ public class UpdateOrderStatusRequest
 {
     [Required]
     public OrderStatus Status { get; set; }
+    public byte[]? RowVersion { get; set; } 
 }
