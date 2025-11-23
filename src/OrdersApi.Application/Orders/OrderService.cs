@@ -14,9 +14,10 @@ public class OrderService(OrdersDbContext context) : IOrderService
     {
         foreach (var line in request.Lines.Where(line => line.Quantity <= 0))
         {
-            return Result<OrderResponse>.Failure($"Quantity must be > 0 for product {line.ProductId}", ResultErrorType.Validation);
+            return Result<OrderResponse>.Failure($"Quantity must be > 0 for product {line.ProductId}",
+                ResultErrorType.Validation);
         }
-        
+
         var customerExist = await context.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken);
         if (!customerExist)
         {
@@ -115,6 +116,13 @@ public class OrderService(OrdersDbContext context) : IOrderService
             return Result<bool>.Failure($"Order with id {id} not found", ResultErrorType.NotFound);
         }
 
+        if (request.RowVersion != null && !order.RowVersion.SequenceEqual(request.RowVersion))
+        {
+            return Result<bool>.Failure(
+                "The order was modified by another user. Please refresh and try again.",
+                ResultErrorType.ConcurrencyConflict);
+        }
+
         //Allowed transitions Pending -> Paid, Pending -> Canceled
         if (order.Status != OrderStatus.Pending)
         {
@@ -144,6 +152,7 @@ public class OrderService(OrdersDbContext context) : IOrderService
             Status = order.Status.ToString(),
             Total = order.Total,
             CreatedAt = order.CreatedAt,
+            RowVersion = order.RowVersion,
             Lines = orderLines.Select(ol => new OrderLineResponse
             {
                 ProductId = ol.ProductId,

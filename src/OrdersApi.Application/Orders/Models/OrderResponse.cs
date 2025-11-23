@@ -8,6 +8,7 @@ public class OrderResponse
     public decimal Total { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<OrderLineResponse> Lines { get; set; } = new ();
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     
 }
 
