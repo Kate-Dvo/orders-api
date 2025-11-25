@@ -8,10 +8,16 @@ namespace OrdersApi.Application.Products;
 
 public class ProductService(OrdersDbContext context) : IProductService
 {
-    public async Task<Result<IReadOnlyList<ProductResponse>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<ProductResponse>>> GetAllAsync(PaginationParams paginationParams,
+        CancellationToken cancellationToken)
     {
-        var products = await context.Products
-            .AsNoTracking()
+        var query = context.Products.AsNoTracking();
+        var totalCount = await query.CountAsync(cancellationToken);
+        query = ApplySorting(query, paginationParams.Sort);
+
+        var products = await query
+            .Skip((paginationParams.Page - 1) * paginationParams.PageSize)
+            .Take(paginationParams.PageSize)
             .Select(p => new ProductResponse
             {
                 Id = p.Id,
@@ -22,7 +28,15 @@ public class ProductService(OrdersDbContext context) : IProductService
             })
             .ToListAsync(cancellationToken);
 
-        return Result<IReadOnlyList<ProductResponse>>.Success(products);
+        var pageResult = new PagedResult<ProductResponse>
+        {
+            Items = products,
+            TotalCount = totalCount,
+            Page = paginationParams.Page,
+            PageSize = paginationParams.PageSize
+        };
+
+        return Result<PagedResult<ProductResponse>>.Success(pageResult);
     }
 
     public async Task<Result<ProductResponse?>> GetByIdAsync(int id, CancellationToken cancellationToken)
@@ -85,7 +99,7 @@ public class ProductService(OrdersDbContext context) : IProductService
         {
             return Result<bool>.Failure($"Product with SKU {request.Sku} already exist.", ResultErrorType.Conflict);
         }
-        
+
         var product = await context.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
         if (product == null)
@@ -115,5 +129,29 @@ public class ProductService(OrdersDbContext context) : IProductService
         context.Products.Remove(product);
         await context.SaveChangesAsync(cancellationToken);
         return Result<bool>.Success(true);
+    }
+
+    private static IQueryable<Product> ApplySorting(IQueryable<Product> query, string? sort)
+    {
+        if (string.IsNullOrEmpty(sort))
+        {
+            return query.OrderBy(p => p.Id);
+        }
+
+        var sortParts = sort.Split('_');
+        var field = sortParts[0].ToLower();
+        var direction = sortParts.Length > 1 ? sortParts[1] : "asc";
+
+        query = field switch
+        {
+            "name" => direction == "desc" ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
+            "price" => direction == "desc"
+                ? query.OrderByDescending(p => (double)p.Price)
+                : query.OrderBy(p => (double)p.Price),
+            "sku" => direction == "desc" ? query.OrderByDescending(p => p.Sku) : query.OrderBy(p => p.Sku),
+            "id" => direction == "desc" ? query.OrderByDescending(p => p.Id) : query.OrderBy(p => p.Id),
+            _ => query.OrderBy(p => p.Id)
+        };
+        return query;
     }
 }

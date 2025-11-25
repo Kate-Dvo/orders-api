@@ -10,11 +10,23 @@ namespace OrdersApi.Api.Controllers;
 public class CustomerController(ICustomerService customerService, ILogger<CustomerController> logger) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CustomerResponse>>> GetCustomers(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<CustomerResponse>>> GetCustomers(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 1,
+        [FromQuery] string? sort = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await customerService.GetAllAsync(cancellationToken);
+            var paginationParams = new PaginationParams
+            {
+                Page = page,
+                PageSize = pageSize,
+                Sort = sort
+            };
+
+            var result = await customerService.GetAllAsync(paginationParams, cancellationToken);
+
             return result.IsSuccess
                 ? Ok(result.Value)
                 : result.ErrorType switch

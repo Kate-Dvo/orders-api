@@ -5,7 +5,10 @@ namespace OrdersApi.Application.Products;
 
 public interface IProductService
 {
-    Task<Result<IReadOnlyList<ProductResponse>>> GetAllAsync(CancellationToken cancellationToken);
+    Task<Result<PagedResult<ProductResponse>>> GetAllAsync(
+        PaginationParams paginationParams,
+        CancellationToken cancellationToken);
+
     Task<Result<ProductResponse?>> GetByIdAsync(int id, CancellationToken cancellationToken);
     Task<Result<ProductResponse?>> CreateAsync(CreateProductRequest request, CancellationToken cancellationToken);
     Task<Result<bool>> UpdateAsync(int id, UpdateProductRequest request, CancellationToken cancellationToken);

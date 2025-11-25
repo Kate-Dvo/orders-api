@@ -88,6 +88,55 @@ public class OrderService(OrdersDbContext context) : IOrderService
         return Result<OrderResponse>.Success(response);
     }
 
+    public async Task<Result<PagedResult<OrderResponse>>> GetAllAsync(OrderFilters filters,
+        CancellationToken cancellationToken)
+    {
+        var query = context.Orders
+            .AsNoTracking()
+            .Include(order => order.Lines)
+            .AsQueryable();
+
+        if (filters.Status.HasValue)
+        {
+            query = query.Where(o => o.Status == filters.Status.Value);
+        }
+
+        if (filters.CustomerId.HasValue)
+        {
+            query = query.Where(o => o.CustomerId == filters.CustomerId.Value);
+        }
+
+        if (filters.DateFrom.HasValue)
+        {
+            query = query.Where(o => o.CreatedAt >= filters.DateFrom.Value);
+        }
+
+        if (filters.DateTo.HasValue)
+        {
+            query = query.Where(o => o.CreatedAt <= filters.DateTo.Value);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        query = ApplySorting(query, filters.Sort);
+
+        var orders = await query
+            .Skip((filters.Page - 1) * filters.PageSize)
+            .Take(filters.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var orderResponses = orders.Select(o => MapToOrderResponse(o, o.Lines.ToList())).ToList();
+
+        var pageResult = new PagedResult<OrderResponse>
+        {
+            Items = orderResponses,
+            TotalCount = totalCount,
+            Page = filters.Page,
+            PageSize = filters.PageSize
+        };
+
+        return Result<PagedResult<OrderResponse>>.Success(pageResult);
+    }
+
     public async Task<Result<OrderResponse>> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         var order = await context.Orders
@@ -160,5 +209,31 @@ public class OrderService(OrdersDbContext context) : IOrderService
                 UnitPrice = ol.UnitPrice
             }).ToList()
         };
+    }
+
+    private static IQueryable<Order> ApplySorting(IQueryable<Order> query, string? sort)
+    {
+        if (string.IsNullOrEmpty(sort))
+        {
+            return query.OrderBy(o => o.Id);
+        }
+
+        var sortParts = sort.Split('_', StringSplitOptions.RemoveEmptyEntries);
+        var field = sortParts[0].ToLower();
+        var direction = sortParts.Length > 1 ? sortParts[1] : "asc";
+
+        query = field switch
+        {
+            "createdat" => direction == "desc"
+                ? query.OrderByDescending(o => o.CreatedAt)
+                : query.OrderBy(o => o.CreatedAt),
+            "total" => direction == "desc"
+                ? query.OrderByDescending(o => (double)o.Total)
+                : query.OrderBy(o => (double)o.Total),
+            "status" => direction == "desc" ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
+            "id" => direction == "desc" ? query.OrderByDescending(o => o.Id) : query.OrderBy(o => o.Id),
+            _ => query.OrderBy(o => o.Id)
+        };
+        return query;
     }
 }

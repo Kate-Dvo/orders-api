@@ -22,19 +22,24 @@ public class ProductServiceTests
         );
 
         await context.SaveChangesAsync();
+        var paginationParams = new PaginationParams
+        {
+            Page = 1,
+            PageSize = 3,
+        };
 
         var productService = new ProductService(context);
 
         //Act
-        var result = await productService.GetAllAsync(CancellationToken.None);
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().NotBeNullOrEmpty();
-        result.Value.Should().HaveCount(3);
-        result.Value.Should().ContainSingle(p => p.Sku == "SKU-001");
-        result.Value.Should().ContainSingle(p => p.Sku == "SKU-002");
-        result.Value.Should().ContainSingle(p => p.Sku == "SKU-003");
+        result.Value?.Items.Should().NotBeNullOrEmpty();
+        result.Value!.Items.Should().HaveCount(3);
+        result.Value.Items.Should().ContainSingle(p => p.Sku == "SKU-001");
+        result.Value.Items.Should().ContainSingle(p => p.Sku == "SKU-002");
+        result.Value.Items.Should().ContainSingle(p => p.Sku == "SKU-003");
     }
 
     [Fact]
@@ -88,10 +93,10 @@ public class ProductServiceTests
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
-        
+
         await context.Products.AddAsync(GetProduct());
         await context.SaveChangesAsync();
-        
+
         var productId = 1;
         var productService = new ProductService(context);
 

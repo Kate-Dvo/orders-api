@@ -8,14 +8,30 @@ namespace OrdersApi.Application.Customers;
 
 public class CustomerService(OrdersDbContext context) : ICustomerService
 {
-    public async Task<Result<IEnumerable<CustomerResponse>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<CustomerResponse>>> GetAllAsync(PaginationParams paginationParams,
+        CancellationToken cancellationToken)
     {
-        var customers = await context.Customers
-            .AsNoTracking()
+        var query = context.Customers
+            .AsNoTracking();
+        var totalCount = await query.CountAsync(cancellationToken);
+        query = ApplySorting(query, paginationParams.Sort);
+
+        var customers = await query.Skip((paginationParams.Page - 1) * paginationParams.PageSize)
+            .Take(paginationParams.PageSize)
             .Select(c => MapToCustomerResponse(c))
             .ToListAsync(cancellationToken);
-        
-        return Result<IEnumerable<CustomerResponse>>.Success(customers);
+
+
+        var pageResult = new PagedResult<CustomerResponse>
+        {
+            TotalCount = totalCount,
+            Items = customers,
+            Page = paginationParams.Page,
+            PageSize = paginationParams.PageSize
+        };
+
+
+        return Result<PagedResult<CustomerResponse>>.Success(pageResult);
     }
 
     public async Task<Result<CustomerResponse>> GetByIdAsync(int id, CancellationToken cancellationToken)
@@ -101,5 +117,30 @@ public class CustomerService(OrdersDbContext context) : ICustomerService
             CreatedAt = customer.CreatedAt
         };
         return customerResponse;
+    }
+
+    private IQueryable<Customer> ApplySorting(IQueryable<Customer> query, string? sort)
+    {
+        if (string.IsNullOrEmpty(sort))
+        {
+            return query.OrderBy(x => x.Id);
+        }
+
+        var sortParts = sort.Split('_');
+        var field = sortParts[0].ToLower();
+        var direction = sortParts.Length > 1 ? sortParts[1] : "asc";
+
+        query = field switch
+        {
+            "id" => direction == "desc" ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id),
+            "name" => direction == "desc" ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name),
+            "email" => direction == "desc" ? query.OrderByDescending(x => x.Email) : query.OrderBy(x => x.Email),
+            "createdat" => direction == "desc"
+                ? query.OrderByDescending(x => x.CreatedAt)
+                : query.OrderBy(x => x.CreatedAt),
+            _ => query.OrderBy(x => x.Id)
+        };
+
+        return query;
     }
 }

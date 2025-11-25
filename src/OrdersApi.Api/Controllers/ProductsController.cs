@@ -12,15 +12,26 @@ public class ProductsController(
     ILogger<ProductsController> logger) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(
+        [FromQuery] int page,
+        [FromQuery] int pageSize,
+        [FromQuery] string? sort,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await productService.GetAllAsync(cancellationToken);
+            var paginationParams = new PaginationParams
+            {
+                Page = page,
+                PageSize = pageSize,
+                Sort = sort
+            };
 
-            return result.IsSuccess
-                ? Ok(result.Value)
-                : result.ErrorType switch
+            var result = await productService.GetAllAsync(paginationParams, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return  result.ErrorType switch
                 {
                     ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
                     ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
@@ -28,6 +39,14 @@ public class ProductsController(
                     ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
                     _ => StatusCode(500, new { Message = result.Error })
                 };
+            }
+
+            Response.Headers.Append("X-Page", result.Value!.Page.ToString());
+            Response.Headers.Append("X-Total-Count", result.Value.TotalCount.ToString());
+            Response.Headers.Append("X-Page-Size", result.Value.PageSize.ToString());
+            Response.Headers.Append("X-Total-Pages", result.Value.TotalPages.ToString());
+
+            return Ok(result.Value.Items);
         }
         catch (Exception e)
         {
@@ -35,7 +54,7 @@ public class ProductsController(
             throw;
         }
     }
-
+    
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponse?>> GetProduct(int id, CancellationToken cancellationToken)
     {

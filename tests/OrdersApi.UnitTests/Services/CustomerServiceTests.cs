@@ -9,7 +9,7 @@ namespace OrdersApi.UnitTests.Services;
 public class CustomerServiceTests
 {
     [Fact]
-    public async Task GetAllAsync_ShouldReturnAllCustomers_WhenCustomersExist()
+    public async Task GetAllAsync_ShouldReturn1Customers_When1CustomerExist()
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
@@ -20,15 +20,49 @@ public class CustomerServiceTests
 
         var customerService = new CustomerService(context);
 
+        var paginationParams = new PaginationParams
+        {
+            PageSize = 2,
+            Page = 1
+        };
+
         //Act
-        var result = await customerService.GetAllAsync(CancellationToken.None);
+        var result = await customerService.GetAllAsync(paginationParams, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().NotBeNullOrEmpty();
-        result.Value.Should().HaveCount(2);
-        result.Value.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail);
-        result.Value.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail2);
+        result.Value?.Items.Should().NotBeNullOrEmpty();
+        result.Value!.Items.Should().HaveCount(2);
+        result.Value.Items.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail);
+        result.Value.Items.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail2);
+    }
+    
+    [Fact]
+    public async Task GetAllAsync_ShouldReturn1Customers_When2Exist()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.AddRange(CustomersHelper.GetCustomer(), CustomersHelper.GetCustomer2());
+
+        await context.SaveChangesAsync();
+
+        var customerService = new CustomerService(context);
+
+        var paginationParams = new PaginationParams
+        {
+            PageSize = 1,
+            Page = 1
+        };
+
+        //Act
+        var result = await customerService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value?.Items.Should().NotBeNullOrEmpty();
+        result.Value!.Items.Should().HaveCount(1);
+        result.Value.Items.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail);
     }
 
     [Fact]
@@ -38,13 +72,19 @@ public class CustomerServiceTests
         var context = TestDbContextFactory.CreateInMemoryDbContext();
         var customerService = new CustomerService(context);
 
+        var paginationParams = new PaginationParams
+        {
+            PageSize = 1,
+            Page = 1
+        };
+
         //Act
-        var result = await customerService.GetAllAsync(CancellationToken.None);
+        var result = await customerService.GetAllAsync(paginationParams, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
-        result.Value.Count().Should().Be(0);
+        result.Value.Items.Count.Should().Be(0);
     }
 
     [Fact]
@@ -160,7 +200,8 @@ public class CustomerServiceTests
         };
 
         //Act
-        var result = await customerService.UpdateAsync(CustomersHelper.DefaultId, updateCustomerRequest, CancellationToken.None);
+        var result =
+            await customerService.UpdateAsync(CustomersHelper.DefaultId, updateCustomerRequest, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeFalse();
@@ -168,7 +209,7 @@ public class CustomerServiceTests
         result.Error.Should().Contain("already exists");
         result.Error.Should().Contain(CustomersHelper.DefaultEmail2);
     }
-    
+
     [Fact]
     public async Task UpdateAsync_ShouldReturnNotFound_WhenCustomerIdNotExist()
     {
@@ -187,7 +228,8 @@ public class CustomerServiceTests
         };
 
         //Act
-        var result = await customerService.UpdateAsync(CustomersHelper.DefaultId2, updateCustomerRequest, CancellationToken.None);
+        var result = await customerService.UpdateAsync(CustomersHelper.DefaultId2, updateCustomerRequest,
+            CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeFalse();
@@ -195,7 +237,7 @@ public class CustomerServiceTests
         result.Error.Should().Contain("not found");
         result.Error.Should().Contain(CustomersHelper.DefaultId2.ToString());
     }
-    
+
     [Fact]
     public async Task UpdateAsync_ShouldReturnSuccess_WhenCustomerUpdated()
     {
@@ -214,12 +256,13 @@ public class CustomerServiceTests
         };
 
         //Act
-        var result = await customerService.UpdateAsync(CustomersHelper.DefaultId, updateCustomerRequest, CancellationToken.None);
+        var result =
+            await customerService.UpdateAsync(CustomersHelper.DefaultId, updateCustomerRequest, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeTrue();
     }
-    
+
     [Fact]
     public async Task DeleteAsync_ShouldReturnSuccess_WhenCustomerDeleted()
     {
@@ -237,7 +280,7 @@ public class CustomerServiceTests
         //Assert
         result.IsSuccess.Should().BeTrue();
     }
-    
+
     [Fact]
     public async Task DeleteAsync_ShouldReturnNotFound_WhenCustomerIdNotExist()
     {
