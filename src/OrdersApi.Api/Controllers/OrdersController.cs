@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Orders;
 using OrdersApi.Application.Orders.Models;
+using OrdersApi.Domain.Enums;
 
 namespace OrdersApi.Api.Controllers;
 
@@ -25,6 +26,52 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
         {
             logger.LogError(e, "Failed to create order for customer {CustomerId}", request.CustomerId);
             return StatusCode(500, new { Message = "An error occured while creating order" });
+        }
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<OrderResponse>>> GetAllOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? sort = null,
+        [FromQuery] OrderStatus? status = null,
+        [FromQuery] int? customerId = null,
+        [FromQuery] DateTime? dateFrom = null,
+        [FromQuery] DateTime? dateTo = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var filters = new OrderFilters
+            {
+                Page = page,
+                PageSize = pageSize,
+                Sort = sort,
+                Status = status,
+                CustomerId = customerId,
+                DateFrom = dateFrom,
+                DateTo = dateTo
+            };
+
+            var result = await orderService.GetAllAsync(filters, cancellationToken);
+            
+            if (!result.IsSuccess)
+            {
+                return MapErrorToActionResult(result.ErrorType, result.Error);
+            }
+            
+            Response.Headers.Append("X-Total-Count", result.Value?.TotalCount.ToString());
+            Response.Headers.Append("X-Page", result.Value?.Page.ToString());
+            Response.Headers.Append("X-Page-Size", result.Value?.PageSize.ToString());
+            Response.Headers.Append("X-Total-Pages", result.Value?.TotalPages.ToString());
+            
+            return Ok(result.Value?.Items);
+            
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to get all orders");
+            throw;
         }
     }
 
@@ -87,7 +134,7 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
         }
     }
 
-    public ActionResult MapErrorToActionResult(ResultErrorType errorType, string? message)
+    private ActionResult MapErrorToActionResult(ResultErrorType errorType, string? message)
     {
         return errorType switch
         {
