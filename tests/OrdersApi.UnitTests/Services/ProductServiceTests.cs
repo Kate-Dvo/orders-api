@@ -236,6 +236,218 @@ public class ProductServiceTests
         result.Error.Should().Contain(productId.ToString());
     }
 
+    //pagination tests
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnCorrectPage_WhenRequestingFirstPage()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 10);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 3 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(3);
+        result.Value.PageSize.Should().Be(3);
+        result.Value.TotalCount.Should().Be(10);
+        result.Value.TotalPages.Should().Be(4);
+        result.Value.HasPreviousPage.Should().BeFalse();
+        result.Value.HasNextPage.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnCorrectPage_WhenRequestingMiddlePage()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 10);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 2, PageSize = 3 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(3);
+        result.Value.Page.Should().Be(2);
+        result.Value.TotalCount.Should().Be(10);
+        result.Value.TotalPages.Should().Be(4);
+        result.Value.HasPreviousPage.Should().BeTrue();
+        result.Value.HasNextPage.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnCorrectPage_WhenRequestingLastPage()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 10);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 4, PageSize = 3 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(1);
+        result.Value.Page.Should().Be(4);
+        result.Value.TotalCount.Should().Be(10);
+        result.Value.TotalPages.Should().Be(4);
+        result.Value.HasPreviousPage.Should().BeTrue();
+        result.Value.HasNextPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnEmptyList_WhenRequestingPageBeyondAvailable()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 5);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 10, PageSize = 3 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().BeEmpty();
+        result.Value.TotalCount.Should().Be(5);
+        result.Value.TotalPages.Should().Be(2);
+        result.Value.Page.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnEmptyList_WhenNoProductsExist()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 10 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().BeEmpty();
+        result.Value.TotalCount.Should().Be(0);
+        result.Value.TotalPages.Should().Be(0);
+        result.Value.HasPreviousPage.Should().BeFalse();
+        result.Value.HasNextPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldEnforceMaxPageSize_WhenRequestingLargePageSize()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 150);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 200 }; //exceeded max
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(100); //capped at ma
+        result.Value.PageSize.Should().Be(100);
+        result.Value.TotalCount.Should().Be(150);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnAllItems_WhenPageSizeExceedsTotalCount()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 5);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 100 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(5);
+        result.Value.TotalPages.Should().Be(1);
+        result.Value.HasNextPage.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("name", 1)]
+    [InlineData("name_desc", 20)]
+    [InlineData("price", 1)]
+    [InlineData("price_desc", 20)]
+    public async Task GetAllAsync_ShouldApplySorting_WhenSortParameterProvided(string sortBy, int expectedFirstId)
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 20);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 10, Sort = sortBy };
+        
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+        
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(10);
+        result.Value.Items.First().Id.Should().Be(expectedFirstId);
+    }
+    
+    [Fact]
+    public async Task GetAllAsync_ShouldCalculateTotalPagesCorrectly_WhenItemsDivideEvenly()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 20);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 5 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.TotalPages.Should().Be(4);
+    }
+    
+    [Fact]
+    public async Task GetAllAsync_ShouldCalculateTotalPagesCorrectly_WhenItemsDoNotDivideEvenly()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+        await ProductHelper.SeedProducts(context, count: 23);
+
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
+        var paginationParams = new PaginationParams { Page = 1, PageSize = 5 };
+
+        //Act
+        var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.TotalPages.Should().Be(5);
+        
+    }
+
     private static Product GetProduct()
     {
         return new Product
