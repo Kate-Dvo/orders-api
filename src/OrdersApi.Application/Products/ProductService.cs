@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Products.Models;
@@ -6,7 +7,10 @@ using OrdersApi.Infrastructure.Data;
 
 namespace OrdersApi.Application.Products;
 
-public class ProductService(OrdersDbContext context) : IProductService
+public class ProductService(
+    OrdersDbContext context,
+    IValidator<CreateProductRequest> createValidator,
+    IValidator<UpdateProductRequest> updateValidator) : IProductService
 {
     public async Task<Result<PagedResult<ProductResponse>>> GetAllAsync(PaginationParams paginationParams,
         CancellationToken cancellationToken)
@@ -63,6 +67,14 @@ public class ProductService(OrdersDbContext context) : IProductService
     public async Task<Result<ProductResponse?>> CreateAsync(CreateProductRequest request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await createValidator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return Result<ProductResponse?>.Failure(errors, ResultErrorType.Validation);
+        }
+
         if (await context.Products.AnyAsync(p => p.Sku == request.Sku, cancellationToken))
         {
             return Result<ProductResponse?>.Failure($"Product with SKU {request.Sku} already exist.",
@@ -95,6 +107,14 @@ public class ProductService(OrdersDbContext context) : IProductService
     public async Task<Result<bool>> UpdateAsync(int id, UpdateProductRequest request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await updateValidator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return Result<bool>.Failure(errors, ResultErrorType.Validation);
+        }
+
         if (await context.Products.AnyAsync(p => p.Sku == request.Sku && p.Id != id, cancellationToken))
         {
             return Result<bool>.Failure($"Product with SKU {request.Sku} already exist.", ResultErrorType.Conflict);

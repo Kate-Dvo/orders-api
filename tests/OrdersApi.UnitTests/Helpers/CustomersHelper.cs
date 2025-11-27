@@ -1,3 +1,4 @@
+using OrdersApi.Application.Customers.Validators;
 using OrdersApi.Domain.Entities;
 
 namespace OrdersApi.UnitTests.Helpers;
@@ -11,6 +12,8 @@ public static class CustomersHelper
     public const string DefaultName2 = "Customer Name2";
     public const string DefaultEmail2 = "some2@email.com";
 
+    public static CreateCustomerRequestValidator CreateValidator => new();
+    public static UpdateCustomerRequestValidator UpdateValidator => new();
     public static Customer GetCustomer()
     {
         return new Customer { Id = DefaultId, Name = DefaultName, Email = DefaultEmail, CreatedAt = DateTime.UtcNow };

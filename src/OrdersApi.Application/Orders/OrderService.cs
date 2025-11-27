@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Orders.Models;
@@ -7,15 +8,16 @@ using OrdersApi.Infrastructure.Data;
 
 namespace OrdersApi.Application.Orders;
 
-public class OrderService(OrdersDbContext context) : IOrderService
+public class OrderService(OrdersDbContext context, IValidator<CreateOrderRequest> createValidator) : IOrderService
 {
     public async Task<Result<OrderResponse>> CreateAsync(CreateOrderRequest request,
         CancellationToken cancellationToken)
     {
-        foreach (var line in request.Lines.Where(line => line.Quantity <= 0))
+        var validationResult = await createValidator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
         {
-            return Result<OrderResponse>.Failure($"Quantity must be > 0 for product {line.ProductId}",
-                ResultErrorType.Validation);
+            var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return Result<OrderResponse>.Failure(errors, ResultErrorType.Validation);
         }
 
         var customerExist = await context.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken);

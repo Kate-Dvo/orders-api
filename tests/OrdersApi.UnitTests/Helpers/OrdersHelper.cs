@@ -1,3 +1,4 @@
+using OrdersApi.Application.Orders.Validators;
 using OrdersApi.Domain.Entities;
 
 namespace OrdersApi.UnitTests.Helpers;
@@ -12,6 +13,8 @@ public static class OrdersHelper
     public const int NonExistProductId = 999;
     public const int NonExistOrderId = 999;
     public const int NonExistCustomerId = 999;
+    
+    public static CreateOrderRequestValidator CreateValidator => new();
     
     public static Customer GetCustomer()
     {

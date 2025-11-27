@@ -21,10 +21,4 @@
       <PackageReference Include="FluentValidation" Version="12.1.0" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Common\Validators\" />
-      <Folder Include="Customers\Validators\" />
-      <Folder Include="Orders\Validators\" />
-    </ItemGroup>
-
 </Project>

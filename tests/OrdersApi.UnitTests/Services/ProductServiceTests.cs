@@ -28,7 +28,7 @@ public class ProductServiceTests
             PageSize = 3,
         };
 
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
 
         //Act
         var result = await productService.GetAllAsync(paginationParams, CancellationToken.None);
@@ -50,7 +50,7 @@ public class ProductServiceTests
         context.Products.Add(GetProduct());
         await context.SaveChangesAsync();
 
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
 
         var newProductRequest = new CreateProductRequest
         {
@@ -76,7 +76,7 @@ public class ProductServiceTests
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
 
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
 
         //Act
         var result = await productService.GetByIdAsync(999, CancellationToken.None);
@@ -98,7 +98,7 @@ public class ProductServiceTests
         await context.SaveChangesAsync();
 
         var productId = 1;
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
 
         //Act
         var result = await productService.GetByIdAsync(productId, CancellationToken.None);
@@ -118,13 +118,13 @@ public class ProductServiceTests
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
 
         //Act
         var result = await productService.CreateAsync(
             new CreateProductRequest
             {
-                Sku = "UNIQUE_SKU",
+                Sku = "UNIQUE-SKU",
                 Name = "Product 1",
                 Price = 100.00m,
                 IsActive = true
@@ -133,7 +133,7 @@ public class ProductServiceTests
         //Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
-        result.Value.Sku.Should().Be("UNIQUE_SKU");
+        result.Value.Sku.Should().Be("UNIQUE-SKU");
         result.Value.Name.Should().Be("Product 1");
         result.Value.Price.Should().Be(100.00m);
         result.Value.IsActive.Should().BeTrue();
@@ -149,7 +149,7 @@ public class ProductServiceTests
         var productId = 1;
         await context.SaveChangesAsync();
 
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
         var productUpdateRequest = new UpdateProductRequest
         {
             Sku = "SKU-001",
@@ -183,7 +183,7 @@ public class ProductServiceTests
 
         await context.SaveChangesAsync();
 
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
         var updateRequest = new UpdateProductRequest
         {
             Sku = "SKU-002",
@@ -209,7 +209,7 @@ public class ProductServiceTests
         var context = TestDbContextFactory.CreateInMemoryDbContext();
         context.Products.Add(GetProduct());
         await context.SaveChangesAsync();
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
 
         //Act
         var result = await productService.DeleteAsync(1, CancellationToken.None);
@@ -223,7 +223,7 @@ public class ProductServiceTests
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var productService = new ProductService(context);
+        var productService = new ProductService(context, ProductHelper.CreateValidator, ProductHelper.UpdateValidator);
         var productId = 1;
 
         //Act
