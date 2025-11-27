@@ -1,9 +1,16 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using OrdersApi.Application.Customers;
+using OrdersApi.Application.Customers.Models;
+using OrdersApi.Application.Customers.Validators;
 using OrdersApi.Application.Orders;
+using OrdersApi.Application.Orders.Models;
+using OrdersApi.Application.Orders.Validators;
 using OrdersApi.Application.Products;
+using OrdersApi.Application.Products.Models;
+using OrdersApi.Application.Products.Validators;
 using OrdersApi.Domain.Configuration;
 using OrdersApi.Infrastructure.Data;
 
@@ -23,10 +30,20 @@ builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 //TODO: Add Authentication
-//TODO: Add other services 
+
+//Services
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+
+//Validators
+builder.Services.AddScoped<IValidator<CreateProductRequest>, CreateProductRequestValidator>();
+builder.Services.AddScoped<IValidator<UpdateProductRequest>, UpdateProductRequestValidator>();
+builder.Services.AddScoped<IValidator<CreateCustomerRequest>, CreateCustomerRequestValidator>();
+builder.Services.AddScoped<IValidator<UpdateCustomerRequest>, UpdateCustomerRequestValidator>();
+builder.Services.AddScoped<IValidator<CreateOrderRequest>, CreateOrderRequestValidator>();
+
+
 
 var app = builder.Build();
 

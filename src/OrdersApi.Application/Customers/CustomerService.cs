@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Customers.Models;
@@ -6,7 +7,10 @@ using OrdersApi.Infrastructure.Data;
 
 namespace OrdersApi.Application.Customers;
 
-public class CustomerService(OrdersDbContext context) : ICustomerService
+public class CustomerService(
+    OrdersDbContext context,
+    IValidator<CreateCustomerRequest> createValidator,
+    IValidator<UpdateCustomerRequest> updateValidator) : ICustomerService
 {
     public async Task<Result<PagedResult<CustomerResponse>>> GetAllAsync(PaginationParams paginationParams,
         CancellationToken cancellationToken)
@@ -52,6 +56,13 @@ public class CustomerService(OrdersDbContext context) : ICustomerService
     public async Task<Result<CustomerResponse>> CreateAsync(CreateCustomerRequest request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await createValidator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return Result<CustomerResponse>.Failure(errors, ResultErrorType.Validation);
+        }
+
         if (await context.Customers.AnyAsync(c => c.Email == request.Email, cancellationToken))
         {
             return Result<CustomerResponse>.Failure($"Email {request.Email} already exists", ResultErrorType.Conflict);
@@ -73,6 +84,13 @@ public class CustomerService(OrdersDbContext context) : ICustomerService
     public async Task<Result<bool>> UpdateAsync(int id, UpdateCustomerRequest request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await updateValidator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return Result<bool>.Failure(errors, ResultErrorType.Validation);
+        }
+
         var customer = await context.Customers.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 
         if (customer == null)

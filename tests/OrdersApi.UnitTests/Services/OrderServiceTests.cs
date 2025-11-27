@@ -22,7 +22,7 @@ public class OrderServiceTests
             OrdersHelper.GetActiveProduct2());
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
 
         var createOrderRequest = new CreateOrderRequest
         {
@@ -35,7 +35,7 @@ public class OrderServiceTests
         };
 
         //Act
-        var result = await ordersService.CreateAsync(createOrderRequest, CancellationToken.None);
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeTrue();
@@ -61,7 +61,7 @@ public class OrderServiceTests
         context.Products.Add(OrdersHelper.GetActiveProduct1());
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var createOrderRequest = new CreateOrderRequest
         {
             CustomerId = OrdersHelper.NonExistCustomerId,
@@ -76,7 +76,7 @@ public class OrderServiceTests
         };
 
         //Act
-        var result = await ordersService.CreateAsync(createOrderRequest, CancellationToken.None);
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
         result.IsSuccess.Should().BeFalse();
         result.ErrorType.Should().Be(ResultErrorType.Validation);
         result.Error.Should().Contain("Customer");
@@ -93,7 +93,7 @@ public class OrderServiceTests
 
         await context.SaveChangesAsync();
 
-        var orderService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var orderRequest = new CreateOrderRequest
         {
             CustomerId = OrdersHelper.DefaultCustomerId,
@@ -131,7 +131,7 @@ public class OrderServiceTests
         });
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var updateRequest = new UpdateOrderStatusRequest
         {
             Status = OrderStatus.Paid
@@ -139,7 +139,7 @@ public class OrderServiceTests
 
         //Act
         var result =
-            await ordersService.UpdateStatusAsync(OrdersHelper.DefaultOrderId, updateRequest, CancellationToken.None);
+            await orderService.UpdateStatusAsync(OrdersHelper.DefaultOrderId, updateRequest, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeTrue();
@@ -166,7 +166,7 @@ public class OrderServiceTests
         });
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var updateRequest = new UpdateOrderStatusRequest
         {
             Status = OrderStatus.Pending
@@ -174,7 +174,7 @@ public class OrderServiceTests
 
         //Act
         var result =
-            await ordersService.UpdateStatusAsync(OrdersHelper.DefaultOrderId, updateRequest, CancellationToken.None);
+            await orderService.UpdateStatusAsync(OrdersHelper.DefaultOrderId, updateRequest, CancellationToken.None);
 
         //Assert
         result.IsSuccess.Should().BeFalse();
@@ -190,7 +190,7 @@ public class OrderServiceTests
         context.Products.Add(OrdersHelper.GetActiveProduct1());
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var updateRequest = new CreateOrderRequest
         {
             CustomerId = OrdersHelper.DefaultCustomerId,
@@ -201,7 +201,7 @@ public class OrderServiceTests
         };
 
         //Act
-        var result = await ordersService.CreateAsync(updateRequest, CancellationToken.None);
+        var result = await orderService.CreateAsync(updateRequest, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorType.Should().Be(ResultErrorType.Validation);
@@ -216,7 +216,7 @@ public class OrderServiceTests
         context.Products.Add(OrdersHelper.GetActiveProduct1());
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var updateRequest = new CreateOrderRequest
         {
             CustomerId = OrdersHelper.DefaultCustomerId,
@@ -227,13 +227,13 @@ public class OrderServiceTests
         };
 
         //Act
-        var result = await ordersService.CreateAsync(updateRequest, CancellationToken.None);
+        var result = await orderService.CreateAsync(updateRequest, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorType.Should().Be(ResultErrorType.Validation);
         result.Error.Should().Contain("Quantity");
     }
-    
+
     [Fact]
     public async Task CreateAsync_ShouldReturnNotFoundError_WhenProductNotFound()
     {
@@ -242,7 +242,7 @@ public class OrderServiceTests
         context.Products.Add(OrdersHelper.GetActiveProduct1());
         await context.SaveChangesAsync();
 
-        var ordersService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
         var updateRequest = new CreateOrderRequest
         {
             CustomerId = OrdersHelper.DefaultCustomerId,
@@ -253,7 +253,7 @@ public class OrderServiceTests
         };
 
         //Act
-        var result = await ordersService.CreateAsync(updateRequest, CancellationToken.None);
+        var result = await orderService.CreateAsync(updateRequest, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorType.Should().Be(ResultErrorType.NotFound);
@@ -266,7 +266,7 @@ public class OrderServiceTests
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var orderService = new OrderService(context);
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
 
 
         //Act
@@ -278,7 +278,7 @@ public class OrderServiceTests
         result.Error.Should().Contain("not found");
         result.Error.Should().Contain(OrdersHelper.NonExistOrderId.ToString());
     }
-    
+
     [Fact]
     public async Task GetByIdAsync_ShouldReturnOrder_WhenOrderExists()
     {
@@ -293,10 +293,10 @@ public class OrderServiceTests
             CreatedAt = DateTime.UtcNow,
             RowVersion = new byte[8]
         });
-        
+
         await context.SaveChangesAsync();
-        
-        var orderService = new OrderService(context);
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
 
 
         //Act

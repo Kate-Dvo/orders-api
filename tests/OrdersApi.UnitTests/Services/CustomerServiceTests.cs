@@ -18,7 +18,8 @@ public class CustomerServiceTests
 
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var paginationParams = new PaginationParams
         {
@@ -36,7 +37,7 @@ public class CustomerServiceTests
         result.Value.Items.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail);
         result.Value.Items.Should().ContainSingle(c => c.Email == CustomersHelper.DefaultEmail2);
     }
-    
+
     [Fact]
     public async Task GetAllAsync_ShouldReturn1Customers_When2Exist()
     {
@@ -47,7 +48,8 @@ public class CustomerServiceTests
 
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var paginationParams = new PaginationParams
         {
@@ -70,7 +72,8 @@ public class CustomerServiceTests
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var paginationParams = new PaginationParams
         {
@@ -92,7 +95,8 @@ public class CustomerServiceTests
     {
         //Arrange
         var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         //Act
         var result = await customerService.GetByIdAsync(CustomersHelper.DefaultId, CancellationToken.None);
@@ -112,7 +116,8 @@ public class CustomerServiceTests
         await context.Customers.AddAsync(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         //Act
         var result = await customerService.GetByIdAsync(CustomersHelper.DefaultId, CancellationToken.None);
@@ -135,7 +140,8 @@ public class CustomerServiceTests
         context.Customers.AddRange(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var createCustomerRequestBody = new CreateCustomerRequest
         {
@@ -162,7 +168,8 @@ public class CustomerServiceTests
         context.Customers.Add(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var createCustomerRequestBody = new CreateCustomerRequest
         {
@@ -191,7 +198,8 @@ public class CustomerServiceTests
         context.Customers.AddRange(CustomersHelper.GetCustomer(), CustomersHelper.GetCustomer2());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var updateCustomerRequest = new UpdateCustomerRequest
         {
@@ -219,7 +227,8 @@ public class CustomerServiceTests
         context.Customers.AddRange(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var updateCustomerRequest = new UpdateCustomerRequest
         {
@@ -247,7 +256,8 @@ public class CustomerServiceTests
         context.Customers.AddRange(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         var updateCustomerRequest = new UpdateCustomerRequest
         {
@@ -272,7 +282,8 @@ public class CustomerServiceTests
         context.Customers.AddRange(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         //Act
         var result = await customerService.DeleteAsync(CustomersHelper.DefaultId, CancellationToken.None);
@@ -290,7 +301,8 @@ public class CustomerServiceTests
         context.Customers.AddRange(CustomersHelper.GetCustomer());
         await context.SaveChangesAsync();
 
-        var customerService = new CustomerService(context);
+        var customerService =
+            new CustomerService(context, CustomersHelper.CreateValidator, CustomersHelper.UpdateValidator);
 
         //Act
         var result = await customerService.DeleteAsync(CustomersHelper.DefaultId2, CancellationToken.None);
