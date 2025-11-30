@@ -8,8 +8,7 @@ namespace OrdersApi.Api.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 public class ProductsController(
-    IProductService productService,
-    ILogger<ProductsController> logger) : ControllerBase
+    IProductService productService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(
@@ -18,65 +17,49 @@ public class ProductsController(
         [FromQuery] string? sort,
         CancellationToken cancellationToken = default)
     {
-        try
+        var paginationParams = new PaginationParams
         {
-            var paginationParams = new PaginationParams
+            Page = page,
+            PageSize = pageSize,
+            Sort = sort
+        };
+
+        var result = await productService.GetAllAsync(paginationParams, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return result.ErrorType switch
             {
-                Page = page,
-                PageSize = pageSize,
-                Sort = sort
+                ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                _ => StatusCode(500, new { Message = result.Error })
             };
-
-            var result = await productService.GetAllAsync(paginationParams, cancellationToken);
-
-            if (!result.IsSuccess)
-            {
-                return  result.ErrorType switch
-                {
-                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
-                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
-                    _ => StatusCode(500, new { Message = result.Error })
-                };
-            }
-
-            Response.Headers.Append("X-Page", result.Value!.Page.ToString());
-            Response.Headers.Append("X-Total-Count", result.Value.TotalCount.ToString());
-            Response.Headers.Append("X-Page-Size", result.Value.PageSize.ToString());
-            Response.Headers.Append("X-Total-Pages", result.Value.TotalPages.ToString());
-
-            return Ok(result.Value.Items);
         }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to extract products");
-            throw;
-        }
+
+        Response.Headers.Append("X-Page", result.Value!.Page.ToString());
+        Response.Headers.Append("X-Total-Count", result.Value.TotalCount.ToString());
+        Response.Headers.Append("X-Page-Size", result.Value.PageSize.ToString());
+        Response.Headers.Append("X-Total-Pages", result.Value.TotalPages.ToString());
+
+        return Ok(result.Value.Items);
     }
-    
+
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponse?>> GetProduct(int id, CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await productService.GetByIdAsync(id, cancellationToken);
-            return result.IsSuccess
-                ? Ok(result.Value)
-                : result.ErrorType switch
-                {
-                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
-                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
-                    _ => StatusCode(500, new { Message = result.Error })
-                };
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to extract products");
-            throw;
-        }
+        var result = await productService.GetByIdAsync(id, cancellationToken);
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ErrorType switch
+            {
+                ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                _ => StatusCode(500, new { Message = result.Error })
+            };
     }
 
     //POST api/v1/products
@@ -84,77 +67,51 @@ public class ProductsController(
     public async Task<ActionResult<ProductResponse>> CreateProduct(CreateProductRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await productService.CreateAsync(request, cancellationToken);
+        var result = await productService.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccess
-                ? CreatedAtAction(nameof(GetProduct), new { id = result.Value?.Id }, result.Value)
-                : result.ErrorType switch
-                {
-                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
-                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.BusinessRule => Conflict(new { Message = result.Error }),
-                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
-                    _ => StatusCode(500, new { Message = result.Error })
-                };
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e,
-                "Failed to create product from request: Sku '{RequestSku}',  Name '{RequestName}', Price {RequestPrice}, Is active {RequestIsActive}"
-                , request.Sku, request.Name, request.Price, request.IsActive);
-            throw;
-        }
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetProduct), new { id = result.Value?.Id }, result.Value)
+            : result.ErrorType switch
+            {
+                ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                ResultErrorType.BusinessRule => Conflict(new { Message = result.Error }),
+                ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                _ => StatusCode(500, new { Message = result.Error })
+            };
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await productService.UpdateAsync(id, request, cancellationToken);
-            return result.IsSuccess
-                ? NoContent()
-                : result.ErrorType switch
-                {
-                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
-                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
-                    _ => StatusCode(500, new { Message = result.Error })
-                };
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to update product with id {Id}", id);
-            throw;
-        }
+        var result = await productService.UpdateAsync(id, request, cancellationToken);
+        return result.IsSuccess
+            ? NoContent()
+            : result.ErrorType switch
+            {
+                ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                _ => StatusCode(500, new { Message = result.Error })
+            };
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProduct(int id, CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await productService.DeleteAsync(id, cancellationToken);
+        var result = await productService.DeleteAsync(id, cancellationToken);
 
-            return result.IsSuccess
-                ? NoContent()
-                : result.ErrorType switch
-                {
-                    ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
-                    ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
-                    ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
-                    _ => StatusCode(500, new { Message = result.Error })
-                };
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to delete product with id {Id}", id);
-            throw;
-        }
+        return result.IsSuccess
+            ? NoContent()
+            : result.ErrorType switch
+            {
+                ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
+                ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
+                ResultErrorType.BusinessRule => BadRequest(new { Message = result.Error }),
+                ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
+                _ => StatusCode(500, new { Message = result.Error })
+            };
     }
 }
