@@ -8,25 +8,17 @@ namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class OrdersController(IOrderService orderService, ILogger<OrdersController> logger) : ControllerBase
+public class OrdersController(IOrderService orderService) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await orderService.CreateAsync(request, cancellationToken);
+        var result = await orderService.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccess
-                ? CreatedAtAction(nameof(GetOrderById), new { id = result.Value?.Id }, result.Value)
-                : MapErrorToActionResult(result.ErrorType, result.Error);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to create order for customer {CustomerId}", request.CustomerId);
-            return StatusCode(500, new { Message = "An error occured while creating order" });
-        }
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetOrderById), new { id = result.Value?.Id }, result.Value)
+            : MapErrorToActionResult(result.ErrorType, result.Error);
     }
 
     [HttpGet]
@@ -40,39 +32,30 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
         [FromQuery] DateTime? dateTo = null,
         CancellationToken cancellationToken = default)
     {
-        try
+        var filters = new OrderFilters
         {
-            var filters = new OrderFilters
-            {
-                Page = page,
-                PageSize = pageSize,
-                Sort = sort,
-                Status = status,
-                CustomerId = customerId,
-                DateFrom = dateFrom,
-                DateTo = dateTo
-            };
+            Page = page,
+            PageSize = pageSize,
+            Sort = sort,
+            Status = status,
+            CustomerId = customerId,
+            DateFrom = dateFrom,
+            DateTo = dateTo
+        };
 
-            var result = await orderService.GetAllAsync(filters, cancellationToken);
-            
-            if (!result.IsSuccess)
-            {
-                return MapErrorToActionResult(result.ErrorType, result.Error);
-            }
-            
-            Response.Headers.Append("X-Total-Count", result.Value?.TotalCount.ToString());
-            Response.Headers.Append("X-Page", result.Value?.Page.ToString());
-            Response.Headers.Append("X-Page-Size", result.Value?.PageSize.ToString());
-            Response.Headers.Append("X-Total-Pages", result.Value?.TotalPages.ToString());
-            
-            return Ok(result.Value?.Items);
-            
-        }
-        catch (Exception e)
+        var result = await orderService.GetAllAsync(filters, cancellationToken);
+
+        if (!result.IsSuccess)
         {
-            logger.LogError(e, "Failed to get all orders");
-            throw;
+            return MapErrorToActionResult(result.ErrorType, result.Error);
         }
+
+        Response.Headers.Append("X-Total-Count", result.Value?.TotalCount.ToString());
+        Response.Headers.Append("X-Page", result.Value?.Page.ToString());
+        Response.Headers.Append("X-Page-Size", result.Value?.PageSize.ToString());
+        Response.Headers.Append("X-Total-Pages", result.Value?.TotalPages.ToString());
+
+        return Ok(result.Value?.Items);
     }
 
     [HttpGet("{id}")]
@@ -99,39 +82,31 @@ public class OrdersController(IOrderService orderService, ILogger<OrdersControll
     public async Task<IActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request,
         CancellationToken cancellationToken)
     {
+        if (!Request.Headers.TryGetValue("If-Match", out var ifMatchValue))
+        {
+            return StatusCode(428, new
+            {
+                Message = "If-Match header is required for updates",
+                Detail = "Include the ETag from GET request in If-Match header"
+            });
+        }
+
+        var etagString = ifMatchValue.ToString().Trim('"');
+
         try
         {
-            if (!Request.Headers.TryGetValue("If-Match", out var ifMatchValue))
-            {
-                return StatusCode(428, new
-                {
-                    Message = "If-Match header is required for updates",
-                    Detail = "Include the ETag from GET request in If-Match header"
-                });
-            }
-
-            var etagString = ifMatchValue.ToString().Trim('"');
-
-            try
-            {
-                request.RowVersion = Convert.FromBase64String(etagString);
-            }
-            catch (FormatException)
-            {
-                return BadRequest(new { Message = "Invalid ETag format" });
-            }
-
-            var result = await orderService.UpdateStatusAsync(id, request, cancellationToken);
-
-            return result.IsSuccess
-                ? NoContent()
-                : MapErrorToActionResult(result.ErrorType, result.Error);
+            request.RowVersion = Convert.FromBase64String(etagString);
         }
-        catch (Exception e)
+        catch (FormatException)
         {
-            logger.LogError(e, "Failed to update order status for id {Id}", id);
-            throw;
+            return BadRequest(new { Message = "Invalid ETag format" });
         }
+
+        var result = await orderService.UpdateStatusAsync(id, request, cancellationToken);
+
+        return result.IsSuccess
+            ? NoContent()
+            : MapErrorToActionResult(result.ErrorType, result.Error);
     }
 
     private ActionResult MapErrorToActionResult(ResultErrorType errorType, string? message)
