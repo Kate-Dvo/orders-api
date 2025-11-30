@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
+using OrdersApi.Api.Middleware;
 using OrdersApi.Application.Customers;
 using OrdersApi.Application.Customers.Models;
 using OrdersApi.Application.Customers.Validators;
@@ -58,6 +59,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 //Configure the HTTP request pipeline
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
