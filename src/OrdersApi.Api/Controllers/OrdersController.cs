@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Orders;
@@ -8,6 +9,7 @@ namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize(Policy = "RequireUserRole")]
 public class OrdersController(IOrderService orderService) : ControllerBase
 {
     [HttpPost]

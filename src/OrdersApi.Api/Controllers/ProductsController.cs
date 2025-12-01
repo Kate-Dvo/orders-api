@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Products;
@@ -11,6 +12,7 @@ public class ProductsController(
     IProductService productService) : ControllerBase
 {
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(
         [FromQuery] int page,
         [FromQuery] int pageSize,
@@ -47,6 +49,7 @@ public class ProductsController(
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<ProductResponse?>> GetProduct(int id, CancellationToken cancellationToken)
     {
         var result = await productService.GetByIdAsync(id, cancellationToken);
@@ -64,6 +67,7 @@ public class ProductsController(
 
     //POST api/v1/products
     [HttpPost]
+    [Authorize(Policy = "RequireAdminRole")]
     public async Task<ActionResult<ProductResponse>> CreateProduct(CreateProductRequest request,
         CancellationToken cancellationToken)
     {
@@ -82,6 +86,7 @@ public class ProductsController(
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "RequireAdminRole")]
     public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request,
         CancellationToken cancellationToken)
     {
@@ -99,6 +104,7 @@ public class ProductsController(
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "RequireAdminRole")]
     public async Task<IActionResult> DeleteProduct(int id, CancellationToken cancellationToken)
     {
         var result = await productService.DeleteAsync(id, cancellationToken);

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Customers;
@@ -10,6 +11,7 @@ namespace OrdersApi.Api.Controllers;
 public class CustomerController(ICustomerService customerService) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = "RequireUserRole")]
     public async Task<ActionResult<IEnumerable<CustomerResponse>>> GetCustomers(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 1,
@@ -39,6 +41,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
 
 
     [HttpGet("{id}")]
+    [Authorize(Policy = "RequireUserRole")]
     public async Task<ActionResult<CustomerResponse>> GetCustomer(int id, CancellationToken cancellationToken)
     {
         var result = await customerService.GetByIdAsync(id, cancellationToken);
@@ -56,6 +59,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
     }
 
     [HttpPost]
+    [Authorize(Policy = "RequireAdminRole")]
     public async Task<ActionResult<CustomerResponse>> CreateCustomer(CreateCustomerRequest request,
         CancellationToken cancellationToken)
     {
@@ -73,6 +77,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "RequireAdminRole")]
     public async Task<IActionResult> UpdateCustomer(int id, UpdateCustomerRequest request,
         CancellationToken cancellationToken)
     {
@@ -90,6 +95,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "RequireAdminRole")]
     public async Task<IActionResult> DeleteCustomer(int id, CancellationToken cancellationToken)
     {
         var result = await customerService.DeleteAsync(id, cancellationToken);
