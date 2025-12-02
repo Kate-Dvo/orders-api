@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using OrdersApi.Api.Helpers;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Products;
 using OrdersApi.Application.Products.Models;
@@ -13,6 +15,7 @@ public class ProductsController(
 {
     [HttpGet]
     [AllowAnonymous]
+    [EnableRateLimiting(Consts.FixedRateLimit)]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(
         [FromQuery] int page,
         [FromQuery] int pageSize,
@@ -50,6 +53,7 @@ public class ProductsController(
 
     [HttpGet("{id}")]
     [AllowAnonymous]
+    [EnableRateLimiting(Consts.FixedRateLimit)]
     public async Task<ActionResult<ProductResponse?>> GetProduct(int id, CancellationToken cancellationToken)
     {
         var result = await productService.GetByIdAsync(id, cancellationToken);
@@ -68,6 +72,7 @@ public class ProductsController(
     //POST api/v1/products
     [HttpPost]
     [Authorize(Policy = "RequireAdminRole")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<ActionResult<ProductResponse>> CreateProduct(CreateProductRequest request,
         CancellationToken cancellationToken)
     {
@@ -87,6 +92,7 @@ public class ProductsController(
 
     [HttpPut("{id}")]
     [Authorize(Policy = "RequireAdminRole")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request,
         CancellationToken cancellationToken)
     {
@@ -105,6 +111,7 @@ public class ProductsController(
 
     [HttpDelete("{id}")]
     [Authorize(Policy = "RequireAdminRole")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<IActionResult> DeleteProduct(int id, CancellationToken cancellationToken)
     {
         var result = await productService.DeleteAsync(id, cancellationToken);

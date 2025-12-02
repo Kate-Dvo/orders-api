@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using OrdersApi.Api.Helpers;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Customers;
 using OrdersApi.Application.Customers.Models;
@@ -12,6 +14,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
 {
     [HttpGet]
     [Authorize(Policy = "RequireUserRole")]
+    [EnableRateLimiting(Consts.FixedRateLimit)]
     public async Task<ActionResult<IEnumerable<CustomerResponse>>> GetCustomers(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 1,
@@ -42,6 +45,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
 
     [HttpGet("{id}")]
     [Authorize(Policy = "RequireUserRole")]
+    [EnableRateLimiting(Consts.FixedRateLimit)]
     public async Task<ActionResult<CustomerResponse>> GetCustomer(int id, CancellationToken cancellationToken)
     {
         var result = await customerService.GetByIdAsync(id, cancellationToken);
@@ -60,6 +64,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
 
     [HttpPost]
     [Authorize(Policy = "RequireAdminRole")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<ActionResult<CustomerResponse>> CreateCustomer(CreateCustomerRequest request,
         CancellationToken cancellationToken)
     {
@@ -78,6 +83,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
 
     [HttpPut("{id}")]
     [Authorize(Policy = "RequireAdminRole")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<IActionResult> UpdateCustomer(int id, UpdateCustomerRequest request,
         CancellationToken cancellationToken)
     {
@@ -96,6 +102,7 @@ public class CustomerController(ICustomerService customerService) : ControllerBa
 
     [HttpDelete("{id}")]
     [Authorize(Policy = "RequireAdminRole")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<IActionResult> DeleteCustomer(int id, CancellationToken cancellationToken)
     {
         var result = await customerService.DeleteAsync(id, cancellationToken);
