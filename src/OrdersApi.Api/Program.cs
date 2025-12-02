@@ -1,11 +1,15 @@
+using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using OrdersApi.Api.Helpers;
 using OrdersApi.Api.Middleware;
 using OrdersApi.Application.Customers;
 using OrdersApi.Application.Customers.Models;
@@ -112,6 +116,75 @@ builder.Services.AddScoped<IValidator<CreateCustomerRequest>, CreateCustomerRequ
 builder.Services.AddScoped<IValidator<UpdateCustomerRequest>, UpdateCustomerRequestValidator>();
 builder.Services.AddScoped<IValidator<CreateOrderRequest>, CreateOrderRequestValidator>();
 
+builder.Services.AddRateLimiter(options =>
+{
+    //Policy 1: Fixed window (60 requests per minute) for GET requests 
+    options.AddFixedWindowLimiter(Consts.FixedRateLimit, fixedOptions =>
+    {
+        fixedOptions.PermitLimit = 60;
+        fixedOptions.Window = TimeSpan.FromMinutes(1);
+        fixedOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        fixedOptions.QueueLimit = 0;
+    });
+
+    //Policy 2: Sliding window (10 request per minute) for write operations (more strict)
+    options.AddSlidingWindowLimiter(Consts.SlidingRateLimit, slidingOptions =>
+    {
+        slidingOptions.PermitLimit = 10;
+        slidingOptions.Window = TimeSpan.FromMinutes(1);
+        slidingOptions.SegmentsPerWindow = 6;
+        slidingOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        slidingOptions.QueueLimit = 0;
+    });
+
+    //Policy 3: Per-user token bucket after auth
+    options.AddTokenBucketLimiter(Consts.PerUserTokenBucket, tokenOptions =>
+    {
+        tokenOptions.TokenLimit = 100;
+        tokenOptions.ReplenishmentPeriod = TimeSpan.FromMinutes(1);
+        tokenOptions.TokensPerPeriod = 50;
+        tokenOptions.AutoReplenishment = true;
+        tokenOptions.QueueLimit = 0;
+    });
+
+    //Global fallback
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var ipAdress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(ipAdress, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+
+    //Customized rejection response
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                retryAfter.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var problemDetails = new
+        {
+            type = "https://tools.ietf.org/html/rfc6585#section-4",
+            title = "Too Many Requests",
+            status = 429,
+            detail = "Rate limit exceeded. Please try again later.",
+            instance = context.HttpContext.Request.Path.ToString(),
+            retryAfter = retryAfter.TotalSeconds
+        };
+
+        await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+    };
+});
+
 var app = builder.Build();
 
 //Apply migrations automatically
@@ -141,6 +214,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 
