@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using OrdersApi.Api.Helpers;
 using OrdersApi.Application.Common;
 using OrdersApi.Application.Orders;
 using OrdersApi.Application.Orders.Models;
@@ -13,6 +15,7 @@ namespace OrdersApi.Api.Controllers;
 public class OrdersController(IOrderService orderService) : ControllerBase
 {
     [HttpPost]
+    [EnableRateLimiting(Consts.PerUserTokenBucket)]
     public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest request,
         CancellationToken cancellationToken)
     {
@@ -24,6 +27,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpGet]
+    [EnableRateLimiting(Consts.PerUserTokenBucket)]
     public async Task<ActionResult<IEnumerable<OrderResponse>>> GetAllOrders(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -61,6 +65,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [EnableRateLimiting(Consts.PerUserTokenBucket)]
     public async Task<ActionResult<OrderResponse>> GetOrderById(int id, CancellationToken cancellationToken)
     {
         var result = await orderService.GetByIdAsync(id, cancellationToken);
@@ -81,6 +86,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpPatch("{id}/status")]
+    [EnableRateLimiting(Consts.SlidingRateLimit)]
     public async Task<IActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request,
         CancellationToken cancellationToken)
     {

@@ -2,14 +2,17 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using OrdersApi.Api.Helpers;
 using OrdersApi.Domain.Configuration;
 
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[EnableRateLimiting(Consts.SlidingRateLimit)]
 public class AuthController(IOptions<JwtSettings> jwtSettings) : ControllerBase
 {
     [HttpPost("login")]
