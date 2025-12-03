@@ -108,6 +108,7 @@ builder.Services.AddDbContext<OrdersDbContext>(options =>
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddResponseCaching();
 
 //Validators
 builder.Services.AddScoped<IValidator<CreateProductRequest>, CreateProductRequestValidator>();
@@ -215,6 +216,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+app.UseResponseCaching();
 
 app.MapControllers();
 
