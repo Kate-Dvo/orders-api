@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -16,6 +18,7 @@ public class ProductsController(
     [HttpGet]
     [AllowAnonymous]
     [EnableRateLimiting(Consts.FixedRateLimit)]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetProducts(
         [FromQuery] int page,
         [FromQuery] int pageSize,
@@ -57,9 +60,9 @@ public class ProductsController(
     public async Task<ActionResult<ProductResponse?>> GetProduct(int id, CancellationToken cancellationToken)
     {
         var result = await productService.GetByIdAsync(id, cancellationToken);
-        return result.IsSuccess
-            ? Ok(result.Value)
-            : result.ErrorType switch
+        if (!result.IsSuccess)
+        {
+            return result.ErrorType switch
             {
                 ResultErrorType.NotFound => NotFound(new { Message = result.Error }),
                 ResultErrorType.Validation => BadRequest(new { Message = result.Error }),
@@ -67,6 +70,23 @@ public class ProductsController(
                 ResultErrorType.Conflict => Conflict(new { Message = result.Error }),
                 _ => StatusCode(500, new { Message = result.Error })
             };
+        }
+
+        var product = result.Value;
+
+        var raw = $"{product?.Id}|{product?.Sku}|{product?.Name}|{product?.Price}|{product?.IsActive}";
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+        var etag = $"\"{Convert.ToBase64String(hashBytes)}\"";
+
+        if (Request.Headers.TryGetValue("If-None-Match", out var ifNoneMatch) &&
+            string.Equals(ifNoneMatch, etag, StringComparison.Ordinal))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        Response.Headers.ETag = etag;
+
+        return Ok(result.Value);
     }
 
     //POST api/v1/products
