@@ -5,4 +5,5 @@ public static class Consts
     public const string FixedRateLimit = "fixed";
     public const string SlidingRateLimit = "sliding";
     public const string PerUserTokenBucket = "per-user";
+    public const string ApiVersion1 = "1.0";
 }
