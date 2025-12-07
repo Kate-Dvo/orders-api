@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -10,7 +11,8 @@ using OrdersApi.Domain.Enums;
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[ApiVersion(Consts.ApiVersion1)]
+[Route("api/v{version:apiVersion}/[controller]")]
 [Authorize(Policy = "RequireUserRole")]
 public class OrdersController(IOrderService orderService) : ControllerBase
 {

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -11,7 +12,8 @@ using OrdersApi.Domain.Configuration;
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[ApiVersion(Consts.ApiVersion1)]
+[Route("api/v{version:apiVersion}/[controller]")]
 [EnableRateLimiting(Consts.SlidingRateLimit)]
 public class AuthController(IOptions<JwtSettings> jwtSettings) : ControllerBase
 {

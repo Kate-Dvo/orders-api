@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Threading.RateLimiting;
+using Asp.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -102,8 +103,6 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-//TODO: Add Authentication
-
 //Services
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
@@ -185,6 +184,14 @@ builder.Services.AddRateLimiter(options =>
         await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
     };
 });
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+}).AddMvc();
 
 var app = builder.Build();
 
