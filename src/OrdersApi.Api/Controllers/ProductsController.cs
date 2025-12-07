@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -11,7 +12,8 @@ using OrdersApi.Application.Products.Models;
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[ApiVersion(Consts.ApiVersion1)]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class ProductsController(
     IProductService productService) : ControllerBase
 {

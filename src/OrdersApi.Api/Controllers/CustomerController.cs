@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -9,7 +10,8 @@ using OrdersApi.Application.Customers.Models;
 namespace OrdersApi.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[ApiVersion(Consts.ApiVersion1)]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class CustomerController(ICustomerService customerService) : ControllerBase
 {
     [HttpGet]
