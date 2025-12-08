@@ -12,7 +12,7 @@ namespace OrdersApi.Api.Controllers;
 
 [ApiController]
 [ApiVersion(Consts.ApiVersion1)]
-[Route("api/v{version:apiVersion}/[controller]")]
+[Route("api/v{version:apiVersion}/orders")]
 [Authorize(Policy = "RequireUserRole")]
 public class OrdersController(IOrderService orderService) : ControllerBase
 {

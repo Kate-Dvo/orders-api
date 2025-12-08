@@ -15,6 +15,10 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
             .Must(lines => lines is { Count: > 0 })
             .WithMessage("Order must have at least one line item.");
 
+        RuleFor(x=> x.DiscountPercent)
+            .InclusiveBetween(0, 100)
+            .When(x=>x.DiscountPercent.HasValue)
+            .WithMessage("Discount percent must be between 0 and 100.");
         RuleForEach(x => x.Lines).SetValidator(new CreateOrderLineRequestValidator());
     }
 }
