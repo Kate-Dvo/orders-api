@@ -23,6 +23,7 @@ using OrdersApi.Application.Products.Models;
 using OrdersApi.Application.Products.Validators;
 using OrdersApi.Domain.Configuration;
 using OrdersApi.Infrastructure.Data;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,7 +37,14 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Orders API",
         Version = "v1",
-        Description = "Web API project example"
+        Description = "Standard Orders API - Original version"
+    });
+
+    options.SwaggerDoc("v2", new OpenApiInfo
+    {
+        Title = "Orders API",
+        Version = "v2",
+        Description = "Orders API with discount support"
     });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -62,6 +70,8 @@ builder.Services.AddSwaggerGen(options =>
             Array.Empty<string>()
         }
     });
+
+    options.DocInclusionPredicate((docName, apiDescription) => { return apiDescription.GroupName == docName; });
 });
 
 //Configure Options Pattern
@@ -186,12 +196,19 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-    options.ApiVersionReader = new UrlSegmentApiVersionReader();
-}).AddMvc();
+    {
+        options.DefaultApiVersion = new ApiVersion(1, 0);
+        options.AssumeDefaultVersionWhenUnspecified = true;
+        options.ReportApiVersions = true;
+        options.ApiVersionReader = new UrlSegmentApiVersionReader();
+    })
+    .AddMvc()
+    .AddApiExplorer(options =>
+    {
+        options.GroupNameFormat = "'v'VVV";
+        options.SubstituteApiVersionInUrl = true;
+    });
+
 
 var app = builder.Build();
 
@@ -212,7 +229,13 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "Order API v1");
+            options.SwaggerEndpoint("/swagger/v2/swagger.json", "Order API v2");
+        }
+    );
+
     var address = app.Services.GetRequiredService<IServer>()
         .Features.Get<IServerAddressesFeature>()?.Addresses;
     Console.WriteLine($"Swagger UI: {address?.FirstOrDefault()}/swagger");

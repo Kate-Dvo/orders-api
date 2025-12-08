@@ -57,16 +57,22 @@ public class OrderService(OrdersDbContext context, IValidator<CreateOrderRequest
             CustomerId = request.CustomerId,
             CreatedAt = DateTime.UtcNow,
             Status = OrderStatus.Pending,
-            Total = 0m
+            Total = 0m,
+            DiscountPercent = request.DiscountPercent
         };
 
         context.Orders.Add(order);
         await context.SaveChangesAsync(cancellationToken);
+
         var orderLines = new List<OrderLine>();
-        var total = 0m;
+        var subTotal = 0m;
 
         foreach (var line in request.Lines)
         {
+            var product = products[line.ProductId];
+            var lineTotal = product.Price * line.Quantity;
+            subTotal += lineTotal;
+
             orderLines.Add(
                 new OrderLine
                 {
@@ -75,12 +81,18 @@ public class OrderService(OrdersDbContext context, IValidator<CreateOrderRequest
                     Quantity = line.Quantity,
                     UnitPrice = products[line.ProductId].Price
                 });
-
-            total += line.Quantity * products[line.ProductId].Price;
         }
 
-        order.Total = total;
         context.OrderLines.AddRange(orderLines);
+        order.SubTotal = subTotal;
+        order.Total = subTotal;
+
+        if (request.DiscountPercent is > 0)
+        {
+            var discountMultiplier = request.DiscountPercent.Value / 100;
+            order.Total = subTotal * discountMultiplier;
+        }
+
         await context.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
@@ -201,7 +213,9 @@ public class OrderService(OrdersDbContext context, IValidator<CreateOrderRequest
             Id = order.Id,
             CustomerId = order.CustomerId,
             Status = order.Status.ToString(),
+            SubTotal = order.SubTotal,
             Total = order.Total,
+            DiscountPercent = order.DiscountPercent,
             CreatedAt = order.CreatedAt,
             RowVersion = order.RowVersion,
             Lines = orderLines.Select(ol => new OrderLineResponse

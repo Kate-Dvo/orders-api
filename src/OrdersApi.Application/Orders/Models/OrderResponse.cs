@@ -5,6 +5,8 @@ public class OrderResponse
     public int Id { get; set; }
     public int CustomerId { get; set; }
     public string Status { get; set; } = string.Empty;
+    public decimal? DiscountPercent { get; set; }
+    public decimal SubTotal { get; set; }
     public decimal Total { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<OrderLineResponse> Lines { get; set; } = new ();
