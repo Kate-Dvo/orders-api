@@ -4,10 +4,12 @@ using System.Threading.RateLimiting;
 using Asp.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OrdersApi.Api.Helpers;
@@ -23,7 +25,6 @@ using OrdersApi.Application.Products.Models;
 using OrdersApi.Application.Products.Validators;
 using OrdersApi.Domain.Configuration;
 using OrdersApi.Infrastructure.Data;
-using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,7 +72,7 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 
-    options.DocInclusionPredicate((docName, apiDescription) => { return apiDescription.GroupName == docName; });
+    options.DocInclusionPredicate((docName, apiDescription) => apiDescription.GroupName == docName);
 });
 
 //Configure Options Pattern
@@ -112,6 +113,10 @@ builder.Services.AddAuthorization(options =>
 //Add DbContext
 builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddHealthChecks()
+    .AddCheck("live", () => HealthCheckResult.Healthy("API is alive"), tags: ["live"])
+    .AddDbContextCheck<OrdersDbContext>("database", tags: ["ready"]);
 
 //Services
 builder.Services.AddScoped<IProductService, ProductService>();
@@ -247,7 +252,24 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseResponseCaching();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+    }
+}).DisableRateLimiting();
 
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+}).DisableRateLimiting();
 app.MapControllers();
 
 app.Run();
