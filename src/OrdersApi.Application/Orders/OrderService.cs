@@ -89,7 +89,7 @@ public class OrderService(OrdersDbContext context, IValidator<CreateOrderRequest
 
         if (request.DiscountPercent is > 0)
         {
-            var discountMultiplier = request.DiscountPercent.Value / 100;
+            var discountMultiplier = 1 - request.DiscountPercent.Value / 100;
             order.Total = subTotal * discountMultiplier;
         }
 
