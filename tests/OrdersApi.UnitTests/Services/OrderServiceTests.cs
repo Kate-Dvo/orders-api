@@ -483,4 +483,233 @@ public class OrderServiceTests
         result.Value.HasPreviousPage.Should().BeTrue();
         result.Value.HasNextPage.Should().BeFalse();
     }
+    
+    [Fact]
+    public async Task CreateAsync_ShouldApplyDiscount_WhenDiscountPercentProvided()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.AddRange(
+            OrdersHelper.GetActiveProduct1(), // Price: 10
+            OrdersHelper.GetActiveProduct2()); // Price: 20
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = 10m, // 10% discount
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 2 }, // 2x10 = 20
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId2, Quantity = 1 } // 1x20 = 20
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value.DiscountPercent.Should().Be(10m);
+        result.Value.SubTotal.Should().Be(40.00m);
+        result.Value.Total.Should().Be(36.00m);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldNotApplyDiscount_WhenDiscountPercentIsZero()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.Add(OrdersHelper.GetActiveProduct1());
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = 0m,
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 2 }
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.DiscountPercent.Should().Be(0m);
+        result.Value.SubTotal.Should().Be(20.00m);
+        result.Value.Total.Should().Be(20.00m); // No discount applied
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldNotApplyDiscount_WhenDiscountPercentIsNull()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.Add(OrdersHelper.GetActiveProduct1());
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = null,
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 2 }
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.DiscountPercent.Should().BeNull();
+        result.Value.SubTotal.Should().Be(20.00m);
+        result.Value.Total.Should().Be(20.00m); // No discount applied
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldApplyMaximumDiscount_WhenDiscountPercentIs100()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.Add(OrdersHelper.GetActiveProduct1());
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = 100m, // 100% discount (free order)
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 2 }
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.DiscountPercent.Should().Be(100m);
+        result.Value.SubTotal.Should().Be(20.00m);
+        result.Value.Total.Should().Be(00.00m);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnValidationError_WhenDiscountPercentExceeds100()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.Add(OrdersHelper.GetActiveProduct1());
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = 150m, // Invalid: exceeds 100%
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 1 }
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorType.Should().Be(ResultErrorType.Validation);
+        result.Error.Should().Contain("Discount percent must be between 0 and 100");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnValidationError_WhenDiscountPercentIsNegative()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.Add(OrdersHelper.GetActiveProduct1());
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = -10m, // Invalid: negative
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 1 }
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorType.Should().Be(ResultErrorType.Validation);
+        result.Error.Should().Contain("Discount percent must be between 0 and 100");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldStoreDiscountPercent_WhenValidDiscountProvided()
+    {
+        //Arrange
+        var context = TestDbContextFactory.CreateInMemoryDbContext();
+
+        context.Customers.Add(OrdersHelper.GetCustomer());
+        context.Products.Add(OrdersHelper.GetActiveProduct1());
+        await context.SaveChangesAsync();
+
+        var orderService = new OrderService(context, OrdersHelper.CreateValidator);
+
+        var createOrderRequest = new CreateOrderRequest
+        {
+            CustomerId = OrdersHelper.DefaultCustomerId,
+            DiscountPercent = 25.5m,
+            Lines =
+            [
+                new CreateOrderLineRequest { ProductId = OrdersHelper.DefaultProductId1, Quantity = 1 }
+            ]
+        };
+
+        //Act
+        var result = await orderService.CreateAsync(createOrderRequest, CancellationToken.None);
+
+        //Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.DiscountPercent.Should().Be(25.5m);
+        
+        // Verify it's persisted in the database
+        var orderFromDb = await context.Orders.FindAsync(result.Value.Id);
+        orderFromDb.Should().NotBeNull();
+        orderFromDb.DiscountPercent.Should().Be(25.5m);
+    }
 }
