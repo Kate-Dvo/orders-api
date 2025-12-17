@@ -166,8 +166,8 @@ public class ProductService(
         {
             "name" => direction == "desc" ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
             "price" => direction == "desc"
-                ? query.OrderByDescending(p => (double)p.Price)
-                : query.OrderBy(p => (double)p.Price),
+                ? query.OrderByDescending(p => p.Price)
+                : query.OrderBy(p => p.Price),
             "sku" => direction == "desc" ? query.OrderByDescending(p => p.Sku) : query.OrderBy(p => p.Sku),
             "id" => direction == "desc" ? query.OrderByDescending(p => p.Id) : query.OrderBy(p => p.Id),
             _ => query.OrderBy(p => p.Id)

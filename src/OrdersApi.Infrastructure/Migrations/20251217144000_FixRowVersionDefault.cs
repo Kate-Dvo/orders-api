@@ -5,7 +5,7 @@
 namespace OrdersApi.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddedOrderRowVersionDefault : Migration
+    public partial class FixRowVersionDefault : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -13,12 +13,12 @@ namespace OrdersApi.Infrastructure.Migrations
             migrationBuilder.AlterColumn<byte[]>(
                 name: "RowVersion",
                 table: "Orders",
-                type: "BLOB",
+                type: "bytea",
                 rowVersion: true,
                 nullable: false,
-                defaultValueSql: "randomblob(8)",
+                defaultValueSql: "'\\x0000000000000000'::bytea",
                 oldClrType: typeof(byte[]),
-                oldType: "BLOB",
+                oldType: "bytea",
                 oldRowVersion: true);
         }
 
@@ -28,13 +28,13 @@ namespace OrdersApi.Infrastructure.Migrations
             migrationBuilder.AlterColumn<byte[]>(
                 name: "RowVersion",
                 table: "Orders",
-                type: "BLOB",
+                type: "bytea",
                 rowVersion: true,
                 nullable: false,
                 oldClrType: typeof(byte[]),
-                oldType: "BLOB",
+                oldType: "bytea",
                 oldRowVersion: true,
-                oldDefaultValueSql: "randomblob(8)");
+                oldDefaultValueSql: "'\\x0000000000000000'::bytea");
         }
     }
 }
