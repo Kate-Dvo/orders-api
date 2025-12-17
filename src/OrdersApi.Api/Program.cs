@@ -112,7 +112,7 @@ builder.Services.AddAuthorization(options =>
 
 //Add DbContext
 builder.Services.AddDbContext<OrdersDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHealthChecks()
     .AddCheck("live", () => HealthCheckResult.Healthy("API is alive"), tags: ["live"])

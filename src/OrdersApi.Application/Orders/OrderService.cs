@@ -244,8 +244,8 @@ public class OrderService(OrdersDbContext context, IValidator<CreateOrderRequest
                 ? query.OrderByDescending(o => o.CreatedAt)
                 : query.OrderBy(o => o.CreatedAt),
             "total" => direction == "desc"
-                ? query.OrderByDescending(o => (double)o.Total)
-                : query.OrderBy(o => (double)o.Total),
+                ? query.OrderByDescending(o => o.Total)
+                : query.OrderBy(o => o.Total),
             "status" => direction == "desc" ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
             "id" => direction == "desc" ? query.OrderByDescending(o => o.Id) : query.OrderBy(o => o.Id),
             _ => query.OrderBy(o => o.Id)

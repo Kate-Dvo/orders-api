@@ -38,7 +38,8 @@ public class OrdersDbContext(DbContextOptions<OrdersDbContext> options) : DbCont
             entity.Property(e => e.Total).HasPrecision(18, 2);
             entity.Property(e => e.RowVersion)
                 .IsRowVersion()
-                .HasDefaultValueSql("randomblob(8)")
+                .HasColumnType("bytea")
+                .HasDefaultValueSql("'\\x0000000000000000'::bytea")
                 .ValueGeneratedOnAddOrUpdate();
             
             //indexing foreign keys for performance 
